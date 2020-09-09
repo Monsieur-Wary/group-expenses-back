@@ -12,8 +12,9 @@ env_logger = "0.7.1"
 serde = "1.0.115"
 serde_json = "1.0.57"
 serde_derive = "1.0.115"
-config = "0.10.1"
 juniper = "0.14.2"
+dotenv = "0.15.0"
+anyhow = "1.0.32"
 
 [dev-dependencies]
 reqwest = { version = "0.10.8", features = ["json"] }

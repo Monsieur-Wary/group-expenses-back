@@ -4,10 +4,14 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn new() -> Result<Self, config::ConfigError> {
-        let mut settings = config::Config::default();
-        settings.merge(config::File::with_name("configuration"))?;
-        settings.try_into()
+    pub fn new() -> anyhow::Result<Self> {
+        dotenv::dotenv()?;
+
+        std::env::var("application_port")
+            .map_err(anyhow::Error::new)
+            .and_then(|p| p.parse::<u16>().map_err(anyhow::Error::new))
+            .or(Ok(8000))
+            .map(|application_port| Settings { application_port })
     }
 
     pub fn application_port(&self) -> u16 {
