@@ -5,7 +5,9 @@ pub async fn spawn_app() -> TestApp {
     let port = listener.local_addr().unwrap().port();
     let address = format!("http://127.0.0.1:{}", port);
 
-    let server = group_expenses::startup::run(listener).expect("Failed to bind address.");
+    let server =
+        group_expenses::startup::run(listener, group_expenses::configuration::Settings::default())
+            .expect("Failed to bind address.");
     tokio::spawn(server);
 
     TestApp { address }
