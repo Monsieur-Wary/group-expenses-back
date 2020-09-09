@@ -6,8 +6,6 @@ pub fn run(
     listener: std::net::TcpListener,
     config: configuration::Settings,
 ) -> std::result::Result<Server, std::io::Error> {
-    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
-
     let config = sync::Arc::new(config);
     let schema = sync::Arc::new(routes::create_schema());
 
