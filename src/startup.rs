@@ -31,6 +31,7 @@ pub fn run(
             .service(
                 web::resource("/graphql")
                     .route(web::post().to(routes::graphql))
+                    // FIXME: This route shouldn't be exposed on production
                     .route(web::get().to(routes::graphiql)),
             )
     })
