@@ -8,14 +8,26 @@ The front part can be found [here](https://github.com/chloeturchi/group-expenses
 
 ## How to start the server
 
-You need to install Rust first:
+### Docker
+
+You first need to build the image.
+Then you run it with the following commands.
+
+```Shell
+docker build -t group-expenses:local .
+docker run -it --rm -p 8000:8000 group-expenses:local
+```
+
+### Rust
+
+You need to install Rust first.
 
 ```Shell
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 cargo --version
 ```
 
-Next just build and run the project:
+Next just build and run the project.
 
 ```Shell
 cargo run
