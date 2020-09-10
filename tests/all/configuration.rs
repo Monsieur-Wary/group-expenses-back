@@ -7,7 +7,6 @@ use std::env;
 //     let port = 8001;
 //     env::set_var("APPLICATION_PORT", port.to_string());
 //     let settings_res = configuration::Settings::new();
-    
 //     assert!(settings_res.is_ok());
 //     assert_eq!(port, settings_res.unwrap().application_port());
 // }

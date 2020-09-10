@@ -10,12 +10,10 @@ The front part can be found [here](https://github.com/chloeturchi/group-expenses
 
 ### Docker
 
-You first need to build the image.
-Then you run it with the following commands.
+Run it with the following command.
 
 ```Shell
-docker build -t group-expenses:local .
-docker run -it --rm -p 8000:8000 group-expenses:local
+docker-compose up
 ```
 
 ### Rust
