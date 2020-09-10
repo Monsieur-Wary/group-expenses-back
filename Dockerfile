@@ -5,7 +5,7 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 WORKDIR /usr/src/group-expenses
 COPY . .
 
-RUN cargo install --path .
+RUN cargo test && cargo install --path .
 
 FROM gcr.io/distroless/cc-debian10
 
