@@ -5,7 +5,7 @@ pub struct Settings {
 
 impl Settings {
     pub fn new() -> anyhow::Result<Self> {
-        std::env::var("application_port")
+        std::env::var("APPLICATION_PORT")
             .map_err(anyhow::Error::new)
             .and_then(|p| p.parse::<u16>().map_err(anyhow::Error::new))
             .or(Ok(DEFAULT_APPLICATION_PORT))
