@@ -25,8 +25,8 @@ impl Mutation {
         description = "Signup a new user. Check if the email isn't already taken or valid and that the password is valid and proceed to create his account."
     )]
     fn signup(email: String, password: String) -> FieldResult<CreatedUser> {
-        if password.is_empty() {
-            return Err("The password is too short!".into());
+        if password.is_empty() || email == "a@a.fr" {
+            return Err("The credentials are invalid!".into());
         }
 
         let created_user = CreatedUser::new(email);

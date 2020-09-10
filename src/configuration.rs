@@ -17,7 +17,7 @@ impl Settings {
     }
 
     pub fn base_url(&self) -> String {
-        format!("http://127.0.0.1:{}", &self.application_port)
+        format!("http://localhost:{}", &self.application_port)
     }
 }
 
