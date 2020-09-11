@@ -7,12 +7,15 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  HASH_SALT: randomsalt
 
 jobs:
   main:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
+      - run: docker-compose up -d db
 
       - name: Cache Cargo registry
         uses: actions/cache@v1
