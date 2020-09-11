@@ -46,13 +46,18 @@ jobs:
           toolchain: stable
           override: true
 
-      - run: cargo build
-      - run: cargo fmt --all -- --check
-      - run: rustup component add clippy
-      - run: cargo clippy -- -D warnings -A clippy::toplevel_ref_arg
-      - run: cargo test
+      - name: Build Rust project
+        run: cargo build
+      - name: Format Rust project
+        run: cargo fmt --all -- --check
+      - name: Lint Rust project
+        run: |
+          rustup component add clippy
+          cargo clippy -- -D warnings -A clippy::toplevel_ref_arg
+      - name: Test Rust project
+        run: cargo test
 
-      # - name: Run cargo-tarpaulin
+      # - name: Rust Test Coverage
       #   uses: actions-rs/tarpaulin@v0.1
       #   with:
       #     args: "--ignore-tests"

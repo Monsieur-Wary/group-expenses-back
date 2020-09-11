@@ -3,7 +3,7 @@ FROM rust:latest as build
 
 # Damn you sqlx!
 ARG DATABASE_URL
-ENV PKG_CONFIG_ALLOW_CROSS=1
+ENV PKG_CONFIG_ALLOW_CROSS=1 DATABASE_URL=${DATABASE_URL}
 
 WORKDIR /usr/src/group-expenses
 COPY . .
