@@ -46,6 +46,7 @@ jobs:
           toolchain: stable
           override: true
       - run: |
+          cargo build
           cargo fmt --all -- --check
           rustup component add clippy
           cargo clippy -- -D warnings
