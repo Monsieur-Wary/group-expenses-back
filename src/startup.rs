@@ -5,9 +5,11 @@ use std::sync;
 pub fn run(
     listener: std::net::TcpListener,
     config: configuration::Settings,
+    db_pool: sqlx::PgPool,
 ) -> std::result::Result<Server, std::io::Error> {
     let config = sync::Arc::new(config);
     let schema = sync::Arc::new(routes::create_schema());
+    let db_pool = web::Data::new(db_pool);
 
     let server = HttpServer::new(move || {
         App::new()
@@ -27,6 +29,7 @@ pub fn run(
             .wrap(middleware::DefaultHeaders::default())
             .data(sync::Arc::clone(&config))
             .data(sync::Arc::clone(&schema))
+            .app_data(web::Data::clone(&db_pool))
             .route("/health_check", web::get().to(routes::health_check))
             .service(
                 web::resource("/graphql")

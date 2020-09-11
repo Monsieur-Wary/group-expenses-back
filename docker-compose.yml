@@ -4,5 +4,21 @@ services:
   server:
     image: monsieurwary/group-expenses:latest
     container_name: "server"
+    environment:
+      DATABASE_URL: postgres://postgres:password@localhost:5432/group-expenses
+      HASH_SALT: randomsalt
     ports:
       - 8000:8000
+    depends_on:
+      - db
+
+  db:
+    image: postgres:alpine
+    container_name: "db"
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: group-expenses
+    ports:
+      - 5432:5432
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql

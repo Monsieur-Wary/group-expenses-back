@@ -35,22 +35,22 @@ jobs:
           key: ${{ runner.os }}-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-stable-debug-target-
-
       
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
+      - run: |
+          cargo fmt --all -- --check
+          rustup component add clippy
+          cargo clippy -- -D warnings
+      
       - run: cargo test
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
           args: "--ignore-tests"
-      - run: |
-          cargo fmt --all -- --check
-          rustup component add clippy
-          cargo clippy -- -D warnings
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1

@@ -7,16 +7,15 @@ async fn graphql_api_should_work() {
     let app = helpers::spawn_app().await;
     let client = reqwest::Client::new();
 
-    let email = "hi@hi.hi";
-    let query = r#"
-    mutation IT_SIGNUP($email: String!) {
-        signup(email: $email, password: "hiiii!") {
-            email
-        }
-    }
-    "#;
+    let email = format!("{}@htest.com", uuid::Uuid::new_v4());
     let body = json!({
-        "query": query,
+        "query": r#"
+            mutation IT_SIGNUP($email: String!) {
+                signup(email: $email, password: "hihihihi!") {
+                    email
+                }
+            }
+        "#,
         "variables": {
             "email": email
         }
@@ -28,7 +27,11 @@ async fn graphql_api_should_work() {
         .json(&body)
         .send()
         .await
-        .expect("Failed to execute request.")
+        .expect("Failed to execute request.");
+
+    assert_eq!(200, res.status());
+
+    let res = res
         .json::<GraphQLResponse>()
         .await
         .expect("Failed to convert response to json.");

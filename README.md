@@ -6,22 +6,10 @@
 Backend part of the group-expenses app.
 The front part can be found [here](https://github.com/chloeturchi/group-expenses-front).
 
-## How to start the server
-
-### Docker
+## How to start the server and the database
 
 Run it with the following command.
 
 ```Shell
 docker-compose up
-```
-
-### Rust
-
-You need to install Rust first.
-Next just build and run the project.
-
-```Shell
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-cargo run
 ```
