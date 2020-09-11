@@ -1,6 +1,3 @@
-// Needed beacause of sqlx :(
-#![allow(clippy::toplevel_ref_arg)]
-
 use crate::routes::graphql::errors::*;
 use unicode_segmentation::UnicodeSegmentation;
 
