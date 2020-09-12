@@ -5,7 +5,7 @@ services:
     image: monsieurwary/group-expenses:latest
     container_name: "server"
     environment:
-      DATABASE_URL: postgres://postgres:password@localhost:5432/group-expenses
+      DATABASE_URL: postgres://postgres:password@db:5432/group-expenses
       HASH_SALT: randomsalt
     ports:
       - 8000:8000

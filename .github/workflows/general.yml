@@ -85,7 +85,6 @@ jobs:
         with:
           push: true
           tags: monsieurwary/group-expenses:latest
-          build-args: DATABASE_URL=${{ env.DATABASE_URL }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 
@@ -94,3 +93,4 @@ jobs:
 
       - name: Cleanup
         run: docker-compose down -v --remove-orphans
+        if: ${{ always() }}
