@@ -6,7 +6,7 @@ WORKDIR /usr/src/group-expenses
 COPY . .
 RUN cargo install --path .
 
-FROM debian:slim
+FROM debian:buster-slim
 RUN apt-get update && apt-get install -y libpq-dev && rm -rf /var/lib/apt/lists/*
 COPY --from=build /usr/local/cargo/bin/group-expenses /usr/local/bin/group-expenses
 CMD ["group-expenses"]
