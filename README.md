@@ -11,5 +11,5 @@ The front part can be found [here](https://github.com/chloeturchi/group-expenses
 Run it with the following command.
 
 ```Shell
-docker-compose up
+docker-compose pull && docker-compose up --force-recreate
 ```
