@@ -1,11 +1,11 @@
-use crate::routes::graphql::errors::*;
+use crate::{infrastructure::repositories, routes::graphql::errors::*};
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Context {
-    db_pool: sqlx::PgPool,
+    db_pool: repositories::PostgresPool,
 }
 impl Context {
-    pub fn new(db_pool: sqlx::PgPool) -> Self {
+    pub fn new(db_pool: repositories::PostgresPool) -> Self {
         Context { db_pool }
     }
 }
@@ -37,30 +37,17 @@ impl Mutation {
         }
 
         // Check email availability
-        let already_used_email = futures::executor::block_on(
-            sqlx::query!("SELECT email FROM users WHERE email = $1", email)
-                .fetch_optional(&context.db_pool),
-        );
-        match &already_used_email {
+        match repositories::UserRepository::find_one_by_email(&email[..], &context.db_pool) {
             Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
             Ok(Some(_)) => return Err(GraphQLError::AlreadyUsedEmail),
             _ => (),
         }
 
         // Save user account
-        let saved = futures::executor::block_on(
-            sqlx::query!(
-                r#"
-                INSERT INTO users (id, email, password)
-                VALUES ($1, $2, $3)
-                "#,
-                uuid::Uuid::new_v4(),
-                email,
-                password,
-            )
-            .execute(&context.db_pool),
-        );
-        if let Err(e) = &saved {
+        let new_user =
+            repositories::models::NewUser::new(uuid::Uuid::new_v4(), email.clone(), password);
+
+        if let Err(e) = repositories::UserRepository::save(&new_user, &context.db_pool) {
             return Err(GraphQLError::InternalServerError(e.to_string()));
         }
 
@@ -82,12 +69,7 @@ impl Mutation {
             return Err(GraphQLError::InvalidEmailAddress);
         }
 
-        let query = futures::executor::block_on(
-            sqlx::query!("SELECT password FROM users WHERE email = $1", email)
-                .fetch_optional(&context.db_pool),
-        );
-
-        match &query {
+        match repositories::UserRepository::find_one_by_email(&email[..], &context.db_pool) {
             Err(e) => Err(GraphQLError::InternalServerError(e.to_string())),
             Ok(None) => Err(GraphQLError::InvalidCredentials),
             Ok(Some(user)) => {

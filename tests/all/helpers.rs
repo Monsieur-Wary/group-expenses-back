@@ -1,4 +1,4 @@
-use group_expenses::configuration;
+use group_expenses::{configuration, infrastructure::repositories};
 use std::env;
 
 /// Spin up an instance of our application and returns its address (i.e. http://localhost:XXXX)
@@ -10,7 +10,7 @@ pub async fn spawn_app() -> TestApp {
     let address = format!("http://127.0.0.1:{}", port);
 
     let config = configuration::Settings::new().expect("Failed to read config.");
-    let db_pool = configure_database(&config.database()).await;
+    let db_pool = configure_database(&config).await;
 
     let server = group_expenses::startup::run(
         listener,
@@ -23,10 +23,8 @@ pub async fn spawn_app() -> TestApp {
     TestApp { address }
 }
 
-async fn configure_database(db_config: &configuration::DatabaseSettings) -> sqlx::PgPool {
-    sqlx::PgPool::connect(&db_config.connection_string())
-        .await
-        .expect("Failed to connect to Postgres.")
+async fn configure_database(db_config: &configuration::Settings) -> repositories::PostgresPool {
+    repositories::get_pool(db_config).expect("Failed to connect to Postgres.")
 }
 
 pub struct TestApp {

@@ -1,4 +1,4 @@
-use crate::{configuration, routes::graphql::schema};
+use crate::{configuration, infrastructure::repositories, routes::graphql::schema};
 use actix_web::{web, Error, HttpResponse};
 use juniper::http;
 use std::sync;
@@ -8,7 +8,7 @@ pub fn create_schema() -> schema::Schema {
 }
 
 pub async fn graphql(
-    db_pool: web::Data<sqlx::PgPool>,
+    db_pool: web::Data<repositories::PostgresPool>,
     schema: web::Data<sync::Arc<schema::Schema>>,
     data: web::Json<http::GraphQLRequest>,
 ) -> Result<HttpResponse, Error> {

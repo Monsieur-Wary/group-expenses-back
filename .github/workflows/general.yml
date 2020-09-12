@@ -16,8 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - run: docker-compose up -d db
-
       - name: Cache Cargo registry
         uses: actions/cache@v1
         with:
@@ -46,21 +44,33 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Build Rust project
-        run: cargo build
-      - name: Format Rust project
-        run: cargo fmt --all -- --check
-      - name: Lint Rust project
+      - name: Prepare
         run: |
+          docker-compose up -d db
           rustup component add clippy
-          cargo clippy -- -D warnings -A clippy::toplevel_ref_arg
-      - name: Test Rust project
+          cargo install diesel_cli --no-default-features --features postgres
+          diesel migration run
+
+      - name: Build
+        run: cargo build
+        
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Lint
+        run: cargo clippy -- -D warnings
+
+      - name: Test
         run: cargo test
 
       # - name: Rust Test Coverage
       #   uses: actions-rs/tarpaulin@v0.1
       #   with:
       #     args: "--ignore-tests"
+
+      - name: Cleanup
+        run: docker-compose down -v --remove-orphans
+        if: ${{ always() }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
@@ -90,7 +100,3 @@ jobs:
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
-
-      - name: Cleanup
-        run: docker-compose down -v --remove-orphans
-        if: ${{ always() }}
