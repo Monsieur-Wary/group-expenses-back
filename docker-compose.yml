@@ -6,6 +6,7 @@ services:
     container_name: "server"
     environment:
       DATABASE_URL: postgres://postgres:password@db:5432/group-expenses
+      DB_HOST: db
       HASH_SALT: randomsalt
     ports:
       - 8000:8000
