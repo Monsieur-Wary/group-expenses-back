@@ -4,7 +4,7 @@ use serde_json::json;
 #[actix_rt::test]
 async fn graphql_api_should_work() {
     // Arrange
-    let app = helpers::spawn_app().await;
+    let app = helpers::spawn_app();
     let client = reqwest::Client::new();
 
     let email = format!("{}@htest.com", uuid::Uuid::new_v4());
@@ -23,7 +23,7 @@ async fn graphql_api_should_work() {
 
     // Act
     let res = client
-        .post(&format!("{}/graphql", &app.address))
+        .post(&format!("{}/graphql", app.address))
         .json(&body)
         .send()
         .await

@@ -1,12 +1,12 @@
 #[actix_rt::test]
 async fn health_check_works() {
     // Arrange
-    let app = crate::helpers::spawn_app().await;
+    let app = crate::helpers::spawn_app();
     let client = reqwest::Client::new();
 
     // Act
     let response = client
-        .get(&format!("{}/health_check", &app.address))
+        .get(&format!("{}/health_check", app.address))
         .send()
         .await
         .expect("Failed to execute request.");

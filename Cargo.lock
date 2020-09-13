@@ -845,6 +845,7 @@ dependencies = [
  "env_logger",
  "futures",
  "juniper",
+ "lazy_static",
  "r2d2",
  "regex",
  "reqwest",
