@@ -1,3 +1,4 @@
+use crate::embedded_migrations;
 use group_expenses::{configuration, infrastructure::repositories};
 use std::env;
 
@@ -11,6 +12,13 @@ pub async fn spawn_app() -> TestApp {
 
     let config = configuration::Settings::new().expect("Failed to read config.");
     let db_pool = configure_database(&config).await;
+
+    // Setup the database
+    embedded_migrations::run_with_output(
+        &db_pool.get().expect("Failed to get a connection."),
+        &mut std::io::stdout(),
+    )
+    .expect("Failed to run the migration.");
 
     let server = group_expenses::startup::run(
         listener,
