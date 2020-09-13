@@ -5,8 +5,8 @@ authors = ["Thibault Dessarps <dessarps.thibault@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-actix-web = "2.0.0"
-actix-cors = "0.2.0"
+actix-web = "3.0.0"
+actix-cors = "0.3.0"
 actix-rt = "1.1.1"
 env_logger = "0.7.1"
 serde = "1.0.115"
