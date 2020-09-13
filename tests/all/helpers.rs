@@ -1,10 +1,9 @@
 use crate::embedded_migrations;
-use group_expenses::{configuration, infrastructure::repositories};
 use std::env;
 
 lazy_static! {
     static ref APP: TestApp = {
-        let config = configuration::Settings::new().expect("Failed to read config.");
+        let config = group_expenses::Settings::new().expect("Failed to read config.");
         let db_pool = configure_database(&config);
         // Setup the database
         embedded_migrations::run_with_output(
@@ -17,7 +16,7 @@ lazy_static! {
         let address = format!("http://127.0.0.1:{}", port);
 
         let server =
-            group_expenses::startup::run(listener, config, db_pool).expect("Failed to bind address.");
+            group_expenses::run(listener, config, db_pool).expect("Failed to bind address.");
         tokio::spawn(server);
 
         TestApp { address }
@@ -26,6 +25,7 @@ lazy_static! {
 
 pub fn initialize() {
     env::set_var("HASH_SALT", "randomsalt");
+    env::set_var("SECRET_KEY", "mysupersecretkey");
     env::set_var(
         "DATABASE_URL",
         "postgres://postgres:password@localhost:5432/group-expenses",
@@ -38,8 +38,8 @@ pub fn spawn_app() -> &'static TestApp {
     &*APP
 }
 
-fn configure_database(db_config: &configuration::Settings) -> repositories::PostgresPool {
-    repositories::get_pool(db_config).expect("Failed to connect to Postgres.")
+fn configure_database(db_config: &group_expenses::Settings) -> group_expenses::PostgresPool {
+    group_expenses::get_pool(db_config).expect("Failed to connect to Postgres.")
 }
 
 pub struct TestApp {

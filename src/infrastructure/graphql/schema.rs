@@ -1,15 +1,6 @@
-use crate::{infrastructure::repositories, routes::graphql::errors::*};
+use super::errors::*;
+use crate::infrastructure::{config, repositories, security};
 use unicode_segmentation::UnicodeSegmentation;
-
-pub struct Context {
-    db_pool: repositories::PostgresPool,
-}
-impl Context {
-    pub fn new(db_pool: repositories::PostgresPool) -> Self {
-        Context { db_pool }
-    }
-}
-impl juniper::Context for Context {}
 
 pub struct Query;
 #[juniper::object(Context = Context)]
@@ -22,7 +13,11 @@ impl Mutation {
     #[graphql(
         description = "Signup a new user. Check if the email isn't already taken or valid and that the password is valid and proceed to create his account."
     )]
-    fn signup(context: &Context, email: String, password: String) -> Result<User, GraphQLError> {
+    fn signup(
+        context: &Context,
+        email: String,
+        password: String,
+    ) -> Result<AuthPayload, GraphQLError> {
         // Check email validity
         if !regex::Regex::new(r"^\S+@\S+\.\S+$")
             .unwrap()
@@ -44,21 +39,34 @@ impl Mutation {
         }
 
         // Save user account
-        let new_user =
-            repositories::models::NewUser::new(uuid::Uuid::new_v4(), email.clone(), password);
+        let user_id = uuid::Uuid::new_v4();
+        let new_user = repositories::models::NewUser::new(user_id, email.clone(), password);
 
         if let Err(e) = repositories::UserRepository::save(&new_user, &context.db_pool) {
             return Err(GraphQLError::InternalServerError(e.to_string()));
         }
 
-        let created_user = User::new(email);
+        // Sign token
+        let token = match security::sign_token(
+            user_id,
+            context.config.security().token_expiration_time(),
+            context.config.security().secret_key(),
+        ) {
+            Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
+            Ok(token) => token,
+        };
+        let user = User::new(email);
 
-        Ok(created_user)
+        Ok(AuthPayload::new(token, user))
     }
 
     // FIXME: Extract domain and repository logic to own module
     #[graphql(description = "Log in a user.")]
-    fn login(context: &Context, email: String, password: String) -> Result<User, GraphQLError> {
+    fn login(
+        context: &Context,
+        email: String,
+        password: String,
+    ) -> Result<AuthPayload, GraphQLError> {
         // Check email validity and password validity
         // https://stackoverflow.com/a/46290728
         if !regex::Regex::new(r"^\S+@\S+\.\S+$")
@@ -76,10 +84,45 @@ impl Mutation {
                 if user.password != password {
                     Err(GraphQLError::InvalidCredentials)
                 } else {
-                    Ok(User::new(email))
+                    // Sign token
+                    let token = match security::sign_token(
+                        user.id,
+                        context.config.security().token_expiration_time(),
+                        context.config.security().secret_key(),
+                    ) {
+                        Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
+                        Ok(token) => token,
+                    };
+                    let user = User::new(email);
+
+                    Ok(AuthPayload::new(token, user))
                 }
             }
         }
+    }
+}
+
+pub struct Context {
+    db_pool: repositories::PostgresPool,
+    config: config::Settings,
+}
+impl Context {
+    pub fn new(db_pool: repositories::PostgresPool, config: config::Settings) -> Self {
+        Context { db_pool, config }
+    }
+}
+impl juniper::Context for Context {}
+
+#[derive(juniper::GraphQLObject)]
+#[graphql(description = "The payload received after a signup or a login.")]
+struct AuthPayload {
+    token: String,
+    user: User,
+}
+
+impl AuthPayload {
+    fn new(token: String, user: User) -> Self {
+        AuthPayload { token, user }
     }
 }
 
@@ -88,6 +131,7 @@ impl Mutation {
 struct User {
     email: String,
 }
+
 impl User {
     fn new(email: String) -> Self {
         User { email }
@@ -95,3 +139,7 @@ impl User {
 }
 
 pub type Schema = juniper::RootNode<'static, Query, Mutation>;
+
+pub fn create_schema() -> Schema {
+    Schema::new(Query, Mutation)
+}

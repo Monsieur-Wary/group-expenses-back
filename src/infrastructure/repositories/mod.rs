@@ -1,7 +1,7 @@
 pub mod models;
 pub mod schema;
 
-use crate::configuration;
+use crate::infrastructure::config;
 use diesel::{pg::PgConnection, prelude::*, r2d2::ConnectionManager};
 use r2d2::Pool;
 use schema::users;
@@ -32,7 +32,7 @@ impl UserRepository {
 pub type PostgresPool = Pool<ConnectionManager<PgConnection>>;
 
 /// Create the database connection pool.
-pub fn get_pool(config: &configuration::Settings) -> anyhow::Result<PostgresPool> {
+pub fn get_pool(config: &config::Settings) -> anyhow::Result<PostgresPool> {
     let mgr = ConnectionManager::<PgConnection>::new(config.database().connection_string());
     r2d2::Pool::builder().build(mgr).map_err(anyhow::Error::new)
 }

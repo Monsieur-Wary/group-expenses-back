@@ -1,17 +1,20 @@
 use anyhow::Context;
 use std::env;
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct Settings {
     application_port: u16,
     database: DatabaseSettings,
-    hash_salt: String,
+    security: SecuritySettings,
 }
 
 impl Settings {
     pub fn new() -> anyhow::Result<Self> {
+        // Necessary env vars
         let hash_salt = env::var("HASH_SALT").context("HASH_SALT env var is not defined!")?;
+        let secret_key = env::var("SECRET_KEY").context("SECRET_KEY env var is not defined!")?;
 
+        // Default settings
         let mut settings = Settings {
             application_port: 8000,
             database: DatabaseSettings {
@@ -21,7 +24,11 @@ impl Settings {
                 host: "localhost".to_string(),
                 name: "group-expenses".to_string(),
             },
-            hash_salt,
+            security: SecuritySettings {
+                hash_salt,
+                secret_key,
+                token_expiration_time: 3600,
+            },
         };
 
         if let Ok(application_port) = env::var("APPLICATION_PORT")
@@ -65,12 +72,12 @@ impl Settings {
         &self.database
     }
 
-    pub fn hash_salt(&self) -> &[u8] {
-        self.hash_salt.as_bytes()
+    pub fn security(&self) -> &SecuritySettings {
+        &self.security
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct DatabaseSettings {
     username: String,
     password: String,
@@ -85,5 +92,26 @@ impl DatabaseSettings {
             "postgres://{}:{}@{}:{}/{}",
             self.username, self.password, self.host, self.port, self.name
         )
+    }
+}
+
+#[derive(serde::Deserialize, Clone)]
+pub struct SecuritySettings {
+    hash_salt: String,
+    secret_key: String,
+    token_expiration_time: i64,
+}
+
+impl SecuritySettings {
+    pub fn hash_salt(&self) -> &[u8] {
+        self.hash_salt.as_bytes()
+    }
+
+    pub fn secret_key(&self) -> &[u8] {
+        self.secret_key.as_bytes()
+    }
+
+    pub fn token_expiration_time(&self) -> i64 {
+        self.token_expiration_time
     }
 }

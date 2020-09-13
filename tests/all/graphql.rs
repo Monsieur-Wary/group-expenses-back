@@ -12,7 +12,10 @@ async fn graphql_api_should_work() {
         "query": r#"
             mutation IT_SIGNUP($email: String!) {
                 signup(email: $email, password: "hihihihi!") {
-                    email
+                    token
+                    user {
+                        email
+                    }
                 }
             }
         "#,
@@ -38,7 +41,8 @@ async fn graphql_api_should_work() {
 
     // Assert
     assert_eq!(None, res.errors);
-    assert_eq!(email, res.data.signup.email);
+    assert!(!res.data.signup.token.is_empty());
+    assert_eq!(email, res.data.signup.user.email);
 }
 
 #[derive(serde::Deserialize)]
@@ -49,9 +53,14 @@ struct GraphQLResponse {
 
 #[derive(serde::Deserialize)]
 struct Signup {
-    signup: CreatedUser,
+    signup: AuthPayload,
 }
 #[derive(serde::Deserialize)]
-struct CreatedUser {
+struct AuthPayload {
+    token: String,
+    user: User,
+}
+#[derive(serde::Deserialize)]
+struct User {
     email: String,
 }

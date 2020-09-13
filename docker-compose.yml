@@ -8,6 +8,7 @@ services:
       DATABASE_URL: postgres://postgres:password@db:5432/group-expenses
       DB_HOST: db
       HASH_SALT: randomsalt
+      SECRET_KEY: mysupersecretkey
     ports:
       - 8000:8000
     depends_on:
