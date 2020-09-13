@@ -28,14 +28,13 @@ pub fn verify_token(token: &str, secret_key: &[u8]) -> anyhow::Result<uuid::Uuid
     Ok(token.claims.sub)
 }
 
-// pub fn hash_password(password: &[u8]) -> anyhow::Result<String> {
-//     argon2::hash_encoded(
-//         password,
-//         &self.config.hash_salt(),
-//         &argon2::Config::default(),
-//     )
-//     .map_err(anyhow::Error::new)
-// }
+pub fn hash_password(pwd: &[u8], salt: &[u8]) -> anyhow::Result<String> {
+    argon2::hash_encoded(pwd, salt, &argon2::Config::default()).map_err(anyhow::Error::new)
+}
+
+pub fn verify_password(pwd: &[u8], hash: &str) -> anyhow::Result<bool> {
+    argon2::verify_encoded(hash, pwd).map_err(anyhow::Error::new)
+}
 
 #[derive(Serialize, Deserialize)]
 struct Claims {
@@ -52,8 +51,15 @@ mod tests {
     fn should_create_a_valid_token() {
         let sub = uuid::Uuid::new_v4();
         let token = sign_token(sub, 3600, b"mysupersecretkey").unwrap();
-        let sub_verified = verify_token(&token[..], b"mysupersecretkey").unwrap();
+        let verified_sub = verify_token(&token[..], b"mysupersecretkey").unwrap();
 
-        assert_eq!(sub, sub_verified);
+        assert_eq!(sub, verified_sub);
+    }
+
+    #[test]
+    fn should_hash_a_password_correctly() {
+        let pwd = "453cR37";
+        let hash = hash_password(pwd.as_bytes(), b"randomsalt").unwrap();
+        assert!(verify_password(pwd.as_bytes(), &hash[..]).unwrap())
     }
 }

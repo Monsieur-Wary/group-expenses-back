@@ -40,7 +40,14 @@ impl Mutation {
 
         // Save user account
         let user_id = uuid::Uuid::new_v4();
-        let new_user = repositories::models::NewUser::new(user_id, email.clone(), password);
+        let hash = match security::hash_password(
+            password.as_bytes(),
+            context.config.security().hash_salt(),
+        ) {
+            Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
+            Ok(hash) => hash,
+        };
+        let new_user = repositories::models::NewUser::new(user_id, email.clone(), hash);
 
         if let Err(e) = repositories::UserRepository::save(&new_user, &context.db_pool) {
             return Err(GraphQLError::InternalServerError(e.to_string()));
@@ -81,21 +88,28 @@ impl Mutation {
             Err(e) => Err(GraphQLError::InternalServerError(e.to_string())),
             Ok(None) => Err(GraphQLError::InvalidCredentials),
             Ok(Some(user)) => {
-                if user.password != password {
-                    Err(GraphQLError::InvalidCredentials)
-                } else {
-                    // Sign token
-                    let token = match security::sign_token(
-                        user.id,
-                        context.config.security().token_expiration_time(),
-                        context.config.security().secret_key(),
-                    ) {
-                        Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
-                        Ok(token) => token,
-                    };
-                    let user = User::new(email);
+                match security::verify_password(password.as_bytes(), &user.password[..]) {
+                    Err(e) => Err(GraphQLError::InternalServerError(e.to_string())),
+                    Ok(verified) => {
+                        if !verified {
+                            Err(GraphQLError::InvalidCredentials)
+                        } else {
+                            // Sign token
+                            let token = match security::sign_token(
+                                user.id,
+                                context.config.security().token_expiration_time(),
+                                context.config.security().secret_key(),
+                            ) {
+                                Err(e) => {
+                                    return Err(GraphQLError::InternalServerError(e.to_string()))
+                                }
+                                Ok(token) => token,
+                            };
+                            let user = User::new(email);
 
-                    Ok(AuthPayload::new(token, user))
+                            Ok(AuthPayload::new(token, user))
+                        }
+                    }
                 }
             }
         }
