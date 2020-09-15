@@ -38,7 +38,7 @@ impl Mutation {
             _ => (),
         }
 
-        // Save user account
+        // Prepare the new user's data
         let user_id = uuid::Uuid::new_v4();
         let hash = match security::hash_password(
             password.as_bytes(),
@@ -47,9 +47,32 @@ impl Mutation {
             Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
             Ok(hash) => hash,
         };
-        let new_user = repositories::models::NewUser::new(user_id, email.clone(), hash);
+        let new_user = repositories::NewUser {
+            id: user_id,
+            email: email.clone(),
+            password: hash,
+        };
 
-        if let Err(e) = repositories::UserRepository::save(&new_user, &context.db_pool) {
+        // Prepare the new dashboard's data
+        let dashboard_id = uuid::Uuid::new_v4();
+        let new_dashboard = repositories::NewDashboard {
+            id: dashboard_id,
+            user_id,
+        };
+
+        let transaction = context
+            .db_pool
+            .get()
+            .map_err(anyhow::Error::new)
+            .and_then(|conn| {
+                conn.build_transaction().run(|| {
+                    repositories::UserRepository::save(&new_user, &context.db_pool)?;
+                    repositories::DashboardRepository::save(&new_dashboard, &context.db_pool)?;
+                    Ok(())
+                })
+            });
+
+        if let Err(e) = transaction {
             return Err(GraphQLError::InternalServerError(e.to_string()));
         }
 
@@ -62,9 +85,17 @@ impl Mutation {
             Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
             Ok(token) => token,
         };
-        let user = User::new(email);
+        let user = User { email };
+        let dashboard = Dashboard {
+            persons: vec![],
+            expenses: vec![],
+        };
 
-        Ok(AuthPayload::new(token, user))
+        Ok(AuthPayload {
+            token,
+            user,
+            dashboard,
+        })
     }
 
     // FIXME: Extract domain and repository logic to own module
@@ -105,9 +136,18 @@ impl Mutation {
                                 }
                                 Ok(token) => token,
                             };
-                            let user = User::new(email);
+                            let user = User { email };
+                            // FIXME: Implement persons and expenses
+                            let dashboard = Dashboard {
+                                persons: vec![],
+                                expenses: vec![],
+                            };
 
-                            Ok(AuthPayload::new(token, user))
+                            Ok(AuthPayload {
+                                token,
+                                user,
+                                dashboard,
+                            })
                         }
                     }
                 }
@@ -130,26 +170,22 @@ impl juniper::Context for Context {}
 #[derive(juniper::GraphQLObject)]
 #[graphql(description = "The payload received after a signup or a login.")]
 struct AuthPayload {
-    token: String,
-    user: User,
-}
-
-impl AuthPayload {
-    fn new(token: String, user: User) -> Self {
-        AuthPayload { token, user }
-    }
+    pub token: String,
+    pub user: User,
+    pub dashboard: Dashboard,
 }
 
 #[derive(juniper::GraphQLObject)]
 #[graphql(description = "The created user after sign up.")]
 struct User {
-    email: String,
+    pub email: String,
 }
 
-impl User {
-    fn new(email: String) -> Self {
-        User { email }
-    }
+#[derive(juniper::GraphQLObject)]
+#[graphql(description = "The created dashboard after sign up.")]
+struct Dashboard {
+    pub persons: Vec<String>,
+    pub expenses: Vec<String>,
 }
 
 pub type Schema = juniper::RootNode<'static, Query, Mutation>;
