@@ -10,7 +10,10 @@ pub async fn handler(
     data: web::Json<http::GraphQLRequest>,
     config: web::Data<config::Settings>,
 ) -> Result<HttpResponse, Error> {
-    let ctx = graphql::Context::new(db_pool.get_ref().to_owned(), config.get_ref().clone());
+    let ctx = graphql::Context {
+        db_pool: db_pool.get_ref().to_owned(),
+        config: config.get_ref().clone(),
+    };
     let res = web::block(move || {
         let res = data.execute(&schema, &ctx);
         Ok::<_, serde_json::error::Error>(serde_json::to_string(&res)?)

@@ -32,8 +32,11 @@ impl Settings {
         };
 
         if let Ok(application_port) = env::var("APPLICATION_PORT")
-            .map_err(anyhow::Error::new)
-            .and_then(|p| p.parse().map_err(anyhow::Error::new))
+            .context("Couldn't read application port env variable.")
+            .and_then(|p| {
+                p.parse()
+                    .context("Couldn't parse application port env var.")
+            })
         {
             settings.application_port = application_port;
         }
@@ -47,8 +50,8 @@ impl Settings {
         }
 
         if let Ok(port) = env::var("DB_PORT")
-            .map_err(anyhow::Error::new)
-            .and_then(|p| p.parse().map_err(anyhow::Error::new))
+            .context("Couldn't read db port env variable.")
+            .and_then(|p| p.parse().context("Couldn't parse db port env var."))
         {
             settings.database.port = port;
         }

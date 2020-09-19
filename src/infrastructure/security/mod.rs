@@ -1,3 +1,4 @@
+use anyhow::Context;
 use chrono::serde::ts_seconds;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,7 @@ pub fn sign_token(
         &claims,
         &EncodingKey::from_secret(secret_key),
     )
-    .map_err(anyhow::Error::new)
+    .context(format!("Couldn't encode a token for this sub {}.", sub))
 }
 
 #[allow(dead_code)] //FIXME
@@ -29,11 +30,12 @@ pub fn verify_token(token: &str, secret_key: &[u8]) -> anyhow::Result<uuid::Uuid
 }
 
 pub fn hash_password(pwd: &[u8], salt: &[u8]) -> anyhow::Result<String> {
-    argon2::hash_encoded(pwd, salt, &argon2::Config::default()).map_err(anyhow::Error::new)
+    argon2::hash_encoded(pwd, salt, &argon2::Config::default())
+        .context("Couldn't hash this password.")
 }
 
 pub fn verify_password(pwd: &[u8], hash: &str) -> anyhow::Result<bool> {
-    argon2::verify_encoded(hash, pwd).map_err(anyhow::Error::new)
+    argon2::verify_encoded(hash, pwd).context("Couldn't verify this password.")
 }
 
 #[derive(Serialize, Deserialize)]

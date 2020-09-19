@@ -6,6 +6,7 @@ mod user;
 
 pub(super) use self::{dashboard::*, user::*};
 use crate::infrastructure::config;
+use anyhow::Context;
 use diesel::{pg::PgConnection, r2d2::ConnectionManager};
 use r2d2::Pool;
 
@@ -15,5 +16,7 @@ pub type PostgresPool = Pool<ConnectionManager<PgConnection>>;
 /// Create the database connection pool.
 pub fn get_pool(config: &config::Settings) -> anyhow::Result<PostgresPool> {
     let mgr = ConnectionManager::<PgConnection>::new(config.database().connection_string());
-    r2d2::Pool::builder().build(mgr).map_err(anyhow::Error::new)
+    r2d2::Pool::builder()
+        .build(mgr)
+        .context("Couldn't build the postgres connection pool.")
 }

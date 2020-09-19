@@ -1,5 +1,9 @@
+mod types;
+
 use super::errors::*;
 use crate::infrastructure::{config, repositories, security};
+use anyhow::Context as ErrorContext;
+use types::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Query;
@@ -10,9 +14,7 @@ pub struct Mutation;
 #[juniper::object(Context = Context)]
 impl Mutation {
     // FIXME: Extract domain and repository logic to own module
-    #[graphql(
-        description = "Signup a new user. Check if the email isn't already taken or valid and that the password is valid and proceed to create his account."
-    )]
+    /// Signup a new user. Check if the email isn't already taken or valid and that the password is valid and proceed to create his account.
     fn signup(
         context: &Context,
         email: String,
@@ -33,7 +35,7 @@ impl Mutation {
 
         // Check email availability
         match repositories::UserRepository::find_one_by_email(&email[..], &context.db_pool) {
-            Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
+            Err(e) => return Err(GraphQLError::InternalServerError(e)),
             Ok(Some(_)) => return Err(GraphQLError::AlreadyUsedEmail),
             _ => (),
         }
@@ -44,12 +46,12 @@ impl Mutation {
             password.as_bytes(),
             context.config.security().hash_salt(),
         ) {
-            Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
+            Err(e) => return Err(GraphQLError::InternalServerError(e)),
             Ok(hash) => hash,
         };
         let new_user = repositories::NewUser {
             id: user_id,
-            email: email.clone(),
+            email,
             password: hash,
         };
 
@@ -63,7 +65,7 @@ impl Mutation {
         let transaction = context
             .db_pool
             .get()
-            .map_err(anyhow::Error::new)
+            .context("Couldn't get a connection for this transaction.")
             .and_then(|conn| {
                 conn.build_transaction().run(|| {
                     repositories::UserRepository::save(&new_user, &context.db_pool)?;
@@ -73,7 +75,7 @@ impl Mutation {
             });
 
         if let Err(e) = transaction {
-            return Err(GraphQLError::InternalServerError(e.to_string()));
+            return Err(GraphQLError::InternalServerError(e));
         }
 
         // Sign token
@@ -82,45 +84,42 @@ impl Mutation {
             context.config.security().token_expiration_time(),
             context.config.security().secret_key(),
         ) {
-            Err(e) => return Err(GraphQLError::InternalServerError(e.to_string())),
+            Err(e) => return Err(GraphQLError::InternalServerError(e)),
             Ok(token) => token,
         };
-        let user = User { email };
-        let dashboard = Dashboard {
-            persons: vec![],
-            expenses: vec![],
-        };
 
-        Ok(AuthPayload {
-            token,
-            user,
-            dashboard,
-        })
+        match repositories::UserRepository::find_one(user_id, &context.db_pool) {
+            Err(e) => Err(GraphQLError::InternalServerError(e)),
+            Ok(u) => Ok(AuthPayload {
+                token,
+                user: u.into(),
+            }),
+        }
     }
 
     // FIXME: Extract domain and repository logic to own module
-    #[graphql(description = "Log in a user.")]
+    /// Log in a user.
     fn login(
         context: &Context,
         email: String,
         password: String,
     ) -> Result<AuthPayload, GraphQLError> {
         // Check email validity and password validity
-        // https://stackoverflow.com/a/46290728
         if !regex::Regex::new(r"^\S+@\S+\.\S+$")
             .unwrap()
             .is_match(&email)
+            // https://stackoverflow.com/a/46290728
             || !(8..=64).contains(&password.graphemes(true).count())
         {
             return Err(GraphQLError::InvalidEmailAddress);
         }
 
         match repositories::UserRepository::find_one_by_email(&email[..], &context.db_pool) {
-            Err(e) => Err(GraphQLError::InternalServerError(e.to_string())),
+            Err(e) => Err(GraphQLError::InternalServerError(e)),
             Ok(None) => Err(GraphQLError::InvalidCredentials),
             Ok(Some(user)) => {
                 match security::verify_password(password.as_bytes(), &user.password[..]) {
-                    Err(e) => Err(GraphQLError::InternalServerError(e.to_string())),
+                    Err(e) => Err(GraphQLError::InternalServerError(e)),
                     Ok(verified) => {
                         if !verified {
                             Err(GraphQLError::InvalidCredentials)
@@ -131,22 +130,13 @@ impl Mutation {
                                 context.config.security().token_expiration_time(),
                                 context.config.security().secret_key(),
                             ) {
-                                Err(e) => {
-                                    return Err(GraphQLError::InternalServerError(e.to_string()))
-                                }
+                                Err(e) => return Err(GraphQLError::InternalServerError(e)),
                                 Ok(token) => token,
-                            };
-                            let user = User { email };
-                            // FIXME: Implement persons and expenses
-                            let dashboard = Dashboard {
-                                persons: vec![],
-                                expenses: vec![],
                             };
 
                             Ok(AuthPayload {
                                 token,
-                                user,
-                                dashboard,
+                                user: user.into(),
                             })
                         }
                     }
@@ -157,36 +147,11 @@ impl Mutation {
 }
 
 pub struct Context {
-    db_pool: repositories::PostgresPool,
-    config: config::Settings,
+    pub db_pool: repositories::PostgresPool,
+    pub config: config::Settings,
 }
-impl Context {
-    pub fn new(db_pool: repositories::PostgresPool, config: config::Settings) -> Self {
-        Context { db_pool, config }
-    }
-}
+
 impl juniper::Context for Context {}
-
-#[derive(juniper::GraphQLObject)]
-#[graphql(description = "The payload received after a signup or a login.")]
-struct AuthPayload {
-    pub token: String,
-    pub user: User,
-    pub dashboard: Dashboard,
-}
-
-#[derive(juniper::GraphQLObject)]
-#[graphql(description = "The created user after sign up.")]
-struct User {
-    pub email: String,
-}
-
-#[derive(juniper::GraphQLObject)]
-#[graphql(description = "The created dashboard after sign up.")]
-struct Dashboard {
-    pub persons: Vec<String>,
-    pub expenses: Vec<String>,
-}
 
 pub type Schema = juniper::RootNode<'static, Query, Mutation>;
 

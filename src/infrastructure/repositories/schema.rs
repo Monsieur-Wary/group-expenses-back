@@ -3,6 +3,7 @@ table! {
         id -> Uuid,
         user_id -> Uuid,
         created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -14,6 +15,7 @@ table! {
         name -> Varchar,
         amount -> Int4,
         created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -24,6 +26,7 @@ table! {
         name -> Varchar,
         resources -> Int4,
         created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -33,6 +36,7 @@ table! {
         email -> Varchar,
         password -> Varchar,
         created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 

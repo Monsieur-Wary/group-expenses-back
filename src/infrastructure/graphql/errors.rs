@@ -5,7 +5,7 @@ pub enum GraphQLError {
     InvalidEmailAddress,
     InvalidCredentials,
     AlreadyUsedEmail,
-    InternalServerError(String),
+    InternalServerError(anyhow::Error),
 }
 
 impl juniper::IntoFieldError for GraphQLError {
@@ -35,8 +35,8 @@ impl juniper::IntoFieldError for GraphQLError {
                     "code": "ALREADY_USED_EMAIL"
                 }),
             ),
-            GraphQLError::InternalServerError(r) => juniper::FieldError::new(
-                format!("Something unexpected happend! Reason: {}", r),
+            GraphQLError::InternalServerError(e) => juniper::FieldError::new(
+                format!("Something unexpected happend! Reason: {}", e),
                 graphql_value!({
                     "code": "INTERNAL_SERVER_ERROR"
                 }),

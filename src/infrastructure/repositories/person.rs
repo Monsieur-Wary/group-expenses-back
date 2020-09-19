@@ -9,4 +9,5 @@ pub struct Person {
     pub name: String,
     pub resources: i64,
     pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }
