@@ -18,7 +18,12 @@ async fn graphql_api_should_work() {
                     user {
                         email
                         dashboard {
-                            id
+                            expenses {
+                                id
+                            }
+                            persons {
+                                id
+                            }
                         }
                     }
                 }
@@ -48,8 +53,7 @@ async fn graphql_api_should_work() {
     // Assert
     assert_eq!(None, res.errors);
     let data = res.data.unwrap();
-    let signup_token = data.signup.token;
-    assert!(!signup_token.is_empty());
+    assert!(!data.signup.token.is_empty());
     assert_eq!(email, data.signup.user.email);
 
     /* --- Login --- */
@@ -62,7 +66,12 @@ async fn graphql_api_should_work() {
                     user {
                         email
                         dashboard {
-                            id
+                            expenses {
+                                id
+                            }
+                            persons {
+                                id
+                            }
                         }
                     }
                 }
@@ -92,9 +101,7 @@ async fn graphql_api_should_work() {
     // Assert
     assert_eq!(None, res.errors);
     let data = res.data.unwrap();
-    let login_token = data.login.token;
-
-    assert_eq!(signup_token, login_token);
+    assert!(!data.login.token.is_empty());
 }
 
 #[derive(serde::Deserialize)]

@@ -4,7 +4,7 @@ mod person;
 mod schema;
 mod user;
 
-pub(super) use self::{dashboard::*, user::*};
+pub(super) use self::{dashboard::*, expense::*, person::*, user::*};
 use crate::infrastructure::config;
 use anyhow::Context;
 use diesel::{pg::PgConnection, r2d2::ConnectionManager};
