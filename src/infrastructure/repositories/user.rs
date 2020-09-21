@@ -19,7 +19,7 @@ impl UserRepository {
         users::table
             .find(id)
             .first(&pool.get()?)
-            .context("Couldn't find one user.")
+            .context("Couldn't find one user")
     }
 
     pub fn find_one_by_email(email: &str, pool: &PostgresPool) -> anyhow::Result<Option<User>> {
@@ -27,14 +27,14 @@ impl UserRepository {
             .filter(users::email.eq(email))
             .first(&pool.get()?)
             .optional()
-            .context("Couldn't query to find one user by email.")
+            .context("Couldn't query to find one user by email")
     }
 
-    pub fn save(new_user: &NewUser, pool: &PostgresPool) -> anyhow::Result<()> {
+    pub fn save(new_user: &NewUser, pool: &PostgresPool) -> anyhow::Result<User> {
         diesel::insert_into(users::table)
             .values(new_user)
-            .execute(&pool.get()?)?;
-        Ok(())
+            .get_result::<User>(&pool.get()?)
+            .context("Couldn't save this user to the database")
     }
 }
 

@@ -23,7 +23,7 @@ impl PersonRepository {
         Person::belonging_to(dashboard)
             .load(&pool.get()?)
             .context(format!(
-                "Couldn't find this dashboard's ({}) persons.",
+                "Couldn't find this dashboard's ({}) persons",
                 dashboard.id
             ))
     }

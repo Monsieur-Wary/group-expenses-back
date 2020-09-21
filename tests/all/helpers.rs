@@ -3,6 +3,8 @@ use std::env;
 
 lazy_static! {
     static ref APP: TestApp = {
+        env_logger::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+
         let config = group_expenses::Settings::new().expect("Failed to read config.");
         let db_pool = configure_database(&config);
         // Setup the database

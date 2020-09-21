@@ -17,17 +17,14 @@ impl DashboardRepository {
     pub fn find_one_by_user(user: &User, pool: &PostgresPool) -> anyhow::Result<Dashboard> {
         Dashboard::belonging_to(user)
             .first(&pool.get()?)
-            .context(format!(
-                "Couldn't find this user's ({}) dashboard.",
-                user.id
-            ))
+            .context(format!("Couldn't find this user's ({}) dashboard", user.id))
     }
 
-    pub fn save(new_dashboard: &NewDashboard, pool: &PostgresPool) -> anyhow::Result<()> {
+    pub fn save(new_dashboard: &NewDashboard, pool: &PostgresPool) -> anyhow::Result<Dashboard> {
         diesel::insert_into(dashboards::table)
             .values(new_dashboard)
-            .execute(&pool.get()?)?;
-        Ok(())
+            .get_result::<Dashboard>(&pool.get()?)
+            .context("Couldn't save this dashboard to the database")
     }
 }
 

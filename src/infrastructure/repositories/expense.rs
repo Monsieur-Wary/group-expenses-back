@@ -25,7 +25,7 @@ impl ExpenseRepository {
         Expense::belonging_to(dashboard)
             .load(&pool.get()?)
             .context(format!(
-                "Couldn't find this dashboard's ({}) expenses.",
+                "Couldn't find this dashboard's ({}) expenses",
                 dashboard.id
             ))
     }

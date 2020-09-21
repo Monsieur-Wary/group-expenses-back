@@ -18,5 +18,5 @@ pub fn get_pool(config: &config::Settings) -> anyhow::Result<PostgresPool> {
     let mgr = ConnectionManager::<PgConnection>::new(config.database().connection_string());
     r2d2::Pool::builder()
         .build(mgr)
-        .context("Couldn't build the postgres connection pool.")
+        .context("Couldn't build the postgres connection pool")
 }

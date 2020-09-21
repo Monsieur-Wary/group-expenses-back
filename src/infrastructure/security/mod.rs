@@ -16,10 +16,9 @@ pub fn sign_token(
         &claims,
         &EncodingKey::from_secret(secret_key),
     )
-    .context(format!("Couldn't encode a token for this sub {}.", sub))
+    .context(format!("Couldn't encode a token for this sub {} ", sub))
 }
 
-#[allow(dead_code)] //FIXME
 pub fn verify_token(token: &str, secret_key: &[u8]) -> anyhow::Result<uuid::Uuid> {
     let token = decode::<Claims>(
         &token,
@@ -31,11 +30,11 @@ pub fn verify_token(token: &str, secret_key: &[u8]) -> anyhow::Result<uuid::Uuid
 
 pub fn hash_password(pwd: &[u8], salt: &[u8]) -> anyhow::Result<String> {
     argon2::hash_encoded(pwd, salt, &argon2::Config::default())
-        .context("Couldn't hash this password.")
+        .context("Couldn't hash this password")
 }
 
 pub fn verify_password(pwd: &[u8], hash: &str) -> anyhow::Result<bool> {
-    argon2::verify_encoded(hash, pwd).context("Couldn't verify this password.")
+    argon2::verify_encoded(hash, pwd).context("Couldn't verify this password")
 }
 
 #[derive(Serialize, Deserialize)]

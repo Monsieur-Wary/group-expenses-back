@@ -11,8 +11,8 @@ pub struct Settings {
 impl Settings {
     pub fn new() -> anyhow::Result<Self> {
         // Necessary env vars
-        let hash_salt = env::var("HASH_SALT").context("HASH_SALT env var is not defined!")?;
-        let secret_key = env::var("SECRET_KEY").context("SECRET_KEY env var is not defined!")?;
+        let hash_salt = env::var("HASH_SALT").context("HASH_SALT env var is not defined")?;
+        let secret_key = env::var("SECRET_KEY").context("SECRET_KEY env var is not defined")?;
 
         // Default settings
         let mut settings = Settings {
@@ -32,11 +32,8 @@ impl Settings {
         };
 
         if let Ok(application_port) = env::var("APPLICATION_PORT")
-            .context("Couldn't read application port env variable.")
-            .and_then(|p| {
-                p.parse()
-                    .context("Couldn't parse application port env var.")
-            })
+            .context("Couldn't read application port env variable")
+            .and_then(|p| p.parse().context("Couldn't parse application port env var"))
         {
             settings.application_port = application_port;
         }
@@ -50,8 +47,8 @@ impl Settings {
         }
 
         if let Ok(port) = env::var("DB_PORT")
-            .context("Couldn't read db port env variable.")
-            .and_then(|p| p.parse().context("Couldn't parse db port env var."))
+            .context("Couldn't read db port env variable")
+            .and_then(|p| p.parse().context("Couldn't parse db port env var"))
         {
             settings.database.port = port;
         }

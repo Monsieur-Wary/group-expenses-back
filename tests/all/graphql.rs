@@ -3,11 +3,11 @@ use serde_json::json;
 
 #[actix_rt::test]
 async fn graphql_api_should_work() {
-    /* --- SignUp --- */
-    // Arrange
     let app = helpers::spawn_app();
     let client = reqwest::Client::new();
 
+    /* --- SignUp --- */
+    // Arrange
     let email = format!("{}@htest.com", uuid::Uuid::new_v4());
     let pwd = String::from("hihihihi");
     let body = json!({
@@ -102,6 +102,33 @@ async fn graphql_api_should_work() {
     assert_eq!(None, res.errors);
     let data = res.data.unwrap();
     assert!(!data.login.token.is_empty());
+}
+
+#[actix_rt::test]
+async fn non_auth_operations_should_be_protected() {
+    let app = helpers::spawn_app();
+    let client = reqwest::Client::new();
+
+    // Arrange
+    let body = json!({
+        "query": r#"
+            query NON_AUTH {
+                nonAuth {
+                    myfield
+                }
+            }
+        "#
+    });
+
+    // Act
+    let res = client
+        .post(&format!("{}/graphql", app.address))
+        .json(&body)
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(401, res.status());
 }
 
 #[derive(serde::Deserialize)]

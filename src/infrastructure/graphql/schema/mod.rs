@@ -65,18 +65,20 @@ impl Mutation {
         let transaction = context
             .db_pool
             .get()
-            .context("Couldn't get a connection for this transaction.")
+            .context("Couldn't get a connection for this transaction")
             .and_then(|conn| {
                 conn.build_transaction().run(|| {
-                    repositories::UserRepository::save(&new_user, &context.db_pool)?;
-                    repositories::DashboardRepository::save(&new_dashboard, &context.db_pool)?;
-                    Ok(())
+                    repositories::UserRepository::save(&new_user, &context.db_pool).and_then(|u| {
+                        repositories::DashboardRepository::save(&new_dashboard, &context.db_pool)
+                            .map(|_| u)
+                    })
                 })
             });
 
-        if let Err(e) = transaction {
-            return Err(GraphQLError::InternalServerError(e));
-        }
+        let user = match transaction {
+            Err(e) => return Err(GraphQLError::InternalServerError(e)),
+            Ok(u) => u,
+        };
 
         // Sign token
         let token = match security::sign_token(
@@ -88,17 +90,14 @@ impl Mutation {
             Ok(token) => token,
         };
 
-        match repositories::UserRepository::find_one(user_id, &context.db_pool) {
-            Err(e) => Err(GraphQLError::InternalServerError(e)),
-            Ok(u) => Ok(AuthPayload {
-                token,
-                user: u.into(),
-            }),
-        }
+        Ok(AuthPayload {
+            token,
+            user: user.into(),
+        })
     }
 
     // FIXME: Extract domain and repository logic to own module
-    /// Log in a user.
+    /// Login a user.
     fn login(
         context: &Context,
         email: String,
@@ -143,6 +142,13 @@ impl Mutation {
                 }
             }
         }
+    }
+
+    // FIXME: Extract domain and repository logic to own module
+    /// The authenticated user.
+    /// This is a user context dependant query.
+    fn viewer(context: &Context) -> Result<User, GraphQLError> {
+        todo!()
     }
 }
 

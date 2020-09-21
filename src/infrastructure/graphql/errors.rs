@@ -35,8 +35,9 @@ impl juniper::IntoFieldError for GraphQLError {
                     "code": "ALREADY_USED_EMAIL"
                 }),
             ),
+            // https://docs.rs/anyhow/1.0.26/anyhow/struct.Error.html#display-representations
             GraphQLError::InternalServerError(e) => juniper::FieldError::new(
-                format!("Something unexpected happend! Reason: {}", e),
+                format!("Something unexpected happend! Reason: {:#}", e),
                 graphql_value!({
                     "code": "INTERNAL_SERVER_ERROR"
                 }),
