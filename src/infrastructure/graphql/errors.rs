@@ -5,6 +5,7 @@ pub enum GraphQLError {
     InvalidEmailAddress,
     InvalidCredentials,
     AlreadyUsedEmail,
+    UserNotFound,
     InternalServerError(anyhow::Error),
 }
 
@@ -33,6 +34,12 @@ impl juniper::IntoFieldError for GraphQLError {
                 "The email address is already used!",
                 graphql_value!({
                     "code": "ALREADY_USED_EMAIL"
+                }),
+            ),
+            GraphQLError::UserNotFound => juniper::FieldError::new(
+                "The viewer was not found!",
+                graphql_value!({
+                    "code": "USER_NOT_FOUND"
                 }),
             ),
             // https://docs.rs/anyhow/1.0.26/anyhow/struct.Error.html#display-representations

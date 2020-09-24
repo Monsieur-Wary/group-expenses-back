@@ -1,26 +1,5 @@
 use super::*;
 
-pub struct AuthPayload {
-    pub token: String,
-    pub user: User,
-}
-
-/// The payload received after a signup or a login.
-#[juniper::object(Context = Context)]
-impl AuthPayload {
-    fn token(&self) -> &str {
-        self.token.as_str()
-    }
-
-    fn user(&self) -> &User {
-        &self.user
-    }
-
-    fn dashboard(&self, context: &Context) -> Result<Dashboard, GraphQLError> {
-        self.user.dashboard(context)
-    }
-}
-
 pub struct User(repositories::User);
 
 impl User {

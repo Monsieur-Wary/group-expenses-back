@@ -15,7 +15,7 @@ pub fn run(
     let server = HttpServer::new(move || {
         App::new()
             .data(db_pool.clone())
-            .data(config.clone())
+            .app_data(config.clone())
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
             .wrap(

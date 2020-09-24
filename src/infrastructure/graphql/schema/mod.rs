@@ -8,18 +8,25 @@ use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Query;
 #[juniper::object(Context = Context)]
-impl Query {}
+impl Query {
+    // FIXME: Extract domain and repository logic to own module
+    /// The authenticated user.
+    /// This is a user context dependant query.
+    fn viewer(context: &Context) -> Result<User, GraphQLError> {
+        match repositories::UserRepository::find_one(*context.viewer.id(), &context.db_pool) {
+            Err(e) => Err(GraphQLError::InternalServerError(e)),
+            Ok(None) => Err(GraphQLError::UserNotFound),
+            Ok(Some(user)) => Ok(user.into()),
+        }
+    }
+}
 
 pub struct Mutation;
 #[juniper::object(Context = Context)]
 impl Mutation {
     // FIXME: Extract domain and repository logic to own module
     /// Signup a new user. Check if the email isn't already taken or valid and that the password is valid and proceed to create his account.
-    fn signup(
-        context: &Context,
-        email: String,
-        password: String,
-    ) -> Result<AuthPayload, GraphQLError> {
+    fn signup(context: &Context, email: String, password: String) -> Result<String, GraphQLError> {
         // Check email validity
         if !regex::Regex::new(r"^\S+@\S+\.\S+$")
             .unwrap()
@@ -90,19 +97,12 @@ impl Mutation {
             Ok(token) => token,
         };
 
-        Ok(AuthPayload {
-            token,
-            user: user.into(),
-        })
+        Ok(token)
     }
 
     // FIXME: Extract domain and repository logic to own module
     /// Login a user.
-    fn login(
-        context: &Context,
-        email: String,
-        password: String,
-    ) -> Result<AuthPayload, GraphQLError> {
+    fn login(context: &Context, email: String, password: String) -> Result<String, GraphQLError> {
         // Check email validity and password validity
         if !regex::Regex::new(r"^\S+@\S+\.\S+$")
             .unwrap()
@@ -133,28 +133,19 @@ impl Mutation {
                                 Ok(token) => token,
                             };
 
-                            Ok(AuthPayload {
-                                token,
-                                user: user.into(),
-                            })
+                            Ok(token)
                         }
                     }
                 }
             }
         }
     }
-
-    // FIXME: Extract domain and repository logic to own module
-    /// The authenticated user.
-    /// This is a user context dependant query.
-    fn viewer(context: &Context) -> Result<User, GraphQLError> {
-        todo!()
-    }
 }
 
 pub struct Context {
     pub db_pool: repositories::PostgresPool,
     pub config: config::Settings,
+    pub viewer: security::Viewer,
 }
 
 impl juniper::Context for Context {}

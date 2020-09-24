@@ -1,4 +1,4 @@
-use crate::infrastructure::{config, graphql, repositories};
+use crate::infrastructure::{config, graphql, repositories, security};
 use actix_web::{dev, error, web, Error, FromRequest, HttpRequest, HttpResponse, Result};
 use futures_util::future::{FutureExt, LocalBoxFuture};
 use graphql_parser::query;
@@ -9,16 +9,18 @@ use std::sync;
 pub async fn handler(
     db_pool: web::Data<repositories::PostgresPool>,
     schema: web::Data<sync::Arc<graphql::Schema>>,
-    req: GraphQLRequest,
-    config: web::Data<config::Settings>,
+    req: GraphQLAuthentication,
 ) -> Result<HttpResponse> {
-    let req: http::GraphQLRequest = req.into();
+    let config = req.config();
+    let viewer = req.viewer();
     let ctx = graphql::Context {
         db_pool: db_pool.get_ref().to_owned(),
-        config: config.get_ref().clone(),
+        config,
+        viewer,
     };
+
     let res = web::block(move || {
-        let res = req.execute(&schema, &ctx);
+        let res = req.graphql().execute(&schema, &ctx);
         Ok::<_, serde_json::error::Error>(serde_json::to_string(&res)?)
     })
     .await
@@ -36,55 +38,80 @@ pub async fn graphiql(config: web::Data<config::Settings>) -> HttpResponse {
         .body(html)
 }
 
-// Copy of juniper's
-#[derive(Deserialize, Debug)]
-pub struct GraphQLRequest<S = DefaultScalarValue>
-where
-    S: ScalarValue,
-{
-    query: String,
-    #[serde(rename = "operationName")]
-    operation_name: Option<String>,
-    #[serde(bound(deserialize = "InputValue<S>: Deserialize<'de> + Serialize"))]
-    variables: Option<InputValue<S>>,
+pub struct GraphQLAuthentication {
+    gql: http::GraphQLRequest,
+    config: config::Settings,
+    viewer: security::Viewer,
 }
 
-impl From<GraphQLRequest> for http::GraphQLRequest {
-    fn from(req: GraphQLRequest) -> Self {
-        http::GraphQLRequest::new(req.query, req.operation_name, req.variables)
+impl GraphQLAuthentication {
+    fn new(http: HttpRequest, gql: GraphQLRequest) -> Result<Self> {
+        let config = http.app_data::<config::Settings>().unwrap().clone();
+
+        graphql_parser::parse_query::<&str>(gql.query.clone().as_str())
+            .map_err(|e| error::ErrorBadRequest(e))
+            .map(|ast| extract_graphql_operation(ast, gql.operation_name.clone()))
+            .and_then(|op| {
+                let gql = http::GraphQLRequest::new(gql.query, gql.operation_name, gql.variables);
+
+                if GRAPHQL_OPERATIONS_AUTH_EXCEPTION.contains(&op.as_str()) {
+                    log::debug!("GraphQL requet - exception for {}", op);
+                    return Ok(GraphQLAuthentication {
+                        gql,
+                        config,
+                        viewer: security::Viewer::default(),
+                    });
+                }
+
+                extract_and_check_token(&http)
+                    .map(|viewer| {
+                        log::debug!("GraphQL request - user authorized for {}", op);
+
+                        GraphQLAuthentication {
+                            gql,
+                            config,
+                            viewer,
+                        }
+                    })
+                    .map_err(|e| {
+                        log::debug!("GraphQL request - user unauthorized for {}", op);
+                        e
+                    })
+            })
+    }
+
+    pub fn graphql(&self) -> &http::GraphQLRequest {
+        &self.gql
+    }
+
+    pub fn config(&self) -> config::Settings {
+        self.config.clone()
+    }
+
+    pub fn viewer(&self) -> security::Viewer {
+        self.viewer.clone()
     }
 }
 
-impl FromRequest for GraphQLRequest {
+impl FromRequest for GraphQLAuthentication {
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self>>;
     type Config = ();
 
     fn from_request(req: &HttpRequest, payload: &mut dev::Payload) -> Self::Future {
-        web::Json::<GraphQLRequest>::from_request(req, payload)
-            .map(|r| {
-                log::debug!(" serialization result: {:?}", r);
-                r.and_then(|j| {
-                    let req = j.into_inner();
-                    graphql_parser::parse_query::<&str>(req.query.as_str())
-                        .map_err(|e| error::ErrorBadRequest(e))
-                        .map(extract_graphql_operation)
-                        .and_then(|op| {
-                            if AUTH_EXCEPTION_GRAPHQL_OPERATIONS.contains(&op.as_str()) {
-                                Ok(req)
-                            } else {
-                                Err(error::ErrorUnauthorized("Unauthorized"))
-                            }
-                        })
-                })
-            })
+        let req = req.clone();
+        web::Json::<GraphQLRequest>::from_request(&req, payload)
+            .map(|r| r.and_then(|j| GraphQLAuthentication::new(req, j.into_inner())))
             .boxed_local()
     }
 }
 
-const AUTH_EXCEPTION_GRAPHQL_OPERATIONS: [&str; 2] = ["signup", "login"];
+const GRAPHQL_OPERATIONS_AUTH_EXCEPTION: [&str; 3] = ["signup", "login", "__schema"];
 
-fn extract_graphql_operation<'a>(ast: query::Document<'a, &'a str>) -> String {
+fn extract_graphql_operation<'a>(
+    ast: query::Document<'a, &'a str>,
+    operation_name: Option<String>,
+) -> String {
     ast.definitions
         .into_iter()
         .filter_map(|d| match d {
@@ -92,8 +119,20 @@ fn extract_graphql_operation<'a>(ast: query::Document<'a, &'a str>) -> String {
             _ => None,
         })
         .filter_map(|o| match o {
-            query::OperationDefinition::Query(q) => Some(q.selection_set.items),
-            query::OperationDefinition::Mutation(m) => Some(m.selection_set.items),
+            query::OperationDefinition::Query(q) => {
+                if operation_name.is_none() || q.name.as_deref() == operation_name.as_deref() {
+                    Some(q.selection_set.items)
+                } else {
+                    None
+                }
+            }
+            query::OperationDefinition::Mutation(m) => {
+                if operation_name.is_none() || m.name.as_deref() == operation_name.as_deref() {
+                    Some(m.selection_set.items)
+                } else {
+                    None
+                }
+            }
             _ => None,
         })
         .flat_map(|v| {
@@ -105,18 +144,79 @@ fn extract_graphql_operation<'a>(ast: query::Document<'a, &'a str>) -> String {
         .collect::<String>()
 }
 
+fn extract_and_check_token(req: &HttpRequest) -> Result<security::Viewer> {
+    let secret_key = req
+        .app_data::<config::Settings>()
+        .unwrap()
+        .security()
+        .secret_key();
+
+    let extracted = req
+        .headers()
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| {
+            let re = regex::Regex::new(r"^Bearer (.+)$").unwrap();
+            re.captures(s).and_then(|c| c.get(1)).map(|m| m.as_str())
+        });
+
+    match extracted {
+        None => Err(error::ErrorUnauthorized("Unauthorized")),
+        Some(t) => {
+            security::verify_token(t, secret_key).map_err(|e| error::ErrorInternalServerError(e))
+        }
+    }
+}
+
+// Copy of juniper's
+#[derive(Deserialize, Debug, Clone)]
+pub struct GraphQLRequest<S = DefaultScalarValue>
+where
+    S: ScalarValue,
+{
+    query: String,
+    #[serde(rename = "operationName")]
+    operation_name: Option<String>,
+    #[serde(bound(deserialize = "InputValue<S>: Deserialize<'de> + Serialize"))]
+    variables: Option<InputValue<S>>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn should_extract_the_graphql_operation() {
-        let ast = graphql_parser::parse_query::<&str>("query MyQuery { login { token } }").unwrap();
-        assert_eq!("login", extract_graphql_operation(ast));
+        let ast =
+            graphql_parser::parse_query::<&str>("query MyQuery { viewer { token } }").unwrap();
+        assert_eq!("viewer", extract_graphql_operation(ast, None));
 
         let ast =
             graphql_parser::parse_query::<&str>("mutation MyMutation { addPerson { person } }")
                 .unwrap();
-        assert_eq!("addPerson", extract_graphql_operation(ast));
+        assert_eq!(
+            "addPerson",
+            extract_graphql_operation(ast, Some("MyMutation".to_string()))
+        );
+
+        let ast = graphql_parser::parse_query::<&str>(
+            r#"
+            query MyQuery {
+                viewer {
+                    token
+                }
+            }
+            mutation MyMutation {
+                addPerson {
+                    person
+                }
+            }
+            "#,
+        )
+        .unwrap();
+        assert_eq!(
+            "addPerson",
+            extract_graphql_operation(ast, Some("MyMutation".to_string()))
+        );
     }
 }

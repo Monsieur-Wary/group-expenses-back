@@ -19,13 +19,15 @@ pub fn sign_token(
     .context(format!("Couldn't encode a token for this sub {} ", sub))
 }
 
-pub fn verify_token(token: &str, secret_key: &[u8]) -> anyhow::Result<uuid::Uuid> {
+pub fn verify_token(token: &str, secret_key: &[u8]) -> anyhow::Result<Viewer> {
     let token = decode::<Claims>(
         &token,
         &DecodingKey::from_secret(secret_key),
         &Validation::default(),
     )?;
-    Ok(token.claims.sub)
+    Ok(Viewer {
+        id: token.claims.sub,
+    })
 }
 
 pub fn hash_password(pwd: &[u8], salt: &[u8]) -> anyhow::Result<String> {
@@ -44,6 +46,17 @@ struct Claims {
     exp: chrono::DateTime<chrono::Utc>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Viewer {
+    id: uuid::Uuid,
+}
+
+impl Viewer {
+    pub fn id(&self) -> &uuid::Uuid {
+        &self.id
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -52,9 +65,9 @@ mod tests {
     fn should_create_a_valid_token() {
         let sub = uuid::Uuid::new_v4();
         let token = sign_token(sub, 3600, b"mysupersecretkey").unwrap();
-        let verified_sub = verify_token(&token[..], b"mysupersecretkey").unwrap();
+        let viewer = verify_token(&token[..], b"mysupersecretkey").unwrap();
 
-        assert_eq!(sub, verified_sub);
+        assert_eq!(sub, *viewer.id());
     }
 
     #[test]

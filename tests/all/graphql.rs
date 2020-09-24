@@ -13,20 +13,7 @@ async fn graphql_api_should_work() {
     let body = json!({
         "query": r#"
             mutation IT_SIGNUP($email: String!, $password: String!) {
-                signup(email: $email, password: $password) {
-                    token
-                    user {
-                        email
-                        dashboard {
-                            expenses {
-                                id
-                            }
-                            persons {
-                                id
-                            }
-                        }
-                    }
-                }
+                signup(email: $email, password: $password)
             }
         "#,
         "variables": {
@@ -53,28 +40,14 @@ async fn graphql_api_should_work() {
     // Assert
     assert_eq!(None, res.errors);
     let data = res.data.unwrap();
-    assert!(!data.signup.token.is_empty());
-    assert_eq!(email, data.signup.user.email);
+    assert!(!data.signup.is_empty());
 
     /* --- Login --- */
     // Arrange
     let body = json!({
         "query": r#"
             mutation IT_LOGIN($email: String!, $password: String!) {
-                login(email: $email, password: $password) {
-                    token
-                    user {
-                        email
-                        dashboard {
-                            expenses {
-                                id
-                            }
-                            persons {
-                                id
-                            }
-                        }
-                    }
-                }
+                login(email: $email, password: $password)
             }
         "#,
         "variables": {
@@ -101,7 +74,7 @@ async fn graphql_api_should_work() {
     // Assert
     assert_eq!(None, res.errors);
     let data = res.data.unwrap();
-    assert!(!data.login.token.is_empty());
+    assert!(!data.login.is_empty());
 }
 
 #[actix_rt::test]
@@ -139,19 +112,10 @@ struct GraphQLResponse<T> {
 
 #[derive(serde::Deserialize)]
 struct Signup {
-    signup: AuthPayload,
+    signup: String,
 }
 
 #[derive(serde::Deserialize)]
 struct Login {
-    login: AuthPayload,
-}
-#[derive(serde::Deserialize)]
-struct AuthPayload {
-    token: String,
-    user: User,
-}
-#[derive(serde::Deserialize)]
-struct User {
-    email: String,
+    login: String,
 }
