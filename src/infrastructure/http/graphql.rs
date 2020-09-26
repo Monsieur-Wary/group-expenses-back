@@ -48,8 +48,8 @@ impl GraphQLAuthentication {
     fn new(http: HttpRequest, gql: GraphQLRequest) -> Result<Self> {
         let config = http.app_data::<config::Settings>().unwrap().clone();
 
-        graphql_parser::parse_query::<&str>(gql.query.clone().as_str())
-            .map_err(|e| error::ErrorBadRequest(e))
+        graphql_parser::parse_query::<&str>(gql.query.as_str())
+            .map_err(error::ErrorBadRequest)
             .map(|ast| extract_graphql_operation(ast, gql.operation_name.clone()))
             .and_then(|op| {
                 let gql = http::GraphQLRequest::new(gql.query, gql.operation_name, gql.variables);
@@ -162,9 +162,7 @@ fn extract_and_check_token(req: &HttpRequest) -> Result<security::Viewer> {
 
     match extracted {
         None => Err(error::ErrorUnauthorized("Unauthorized")),
-        Some(t) => {
-            security::verify_token(t, secret_key).map_err(|e| error::ErrorInternalServerError(e))
-        }
+        Some(t) => security::verify_token(t, secret_key).map_err(error::ErrorInternalServerError),
     }
 }
 
