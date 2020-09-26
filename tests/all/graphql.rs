@@ -215,6 +215,84 @@ async fn graphql_api_should_work() {
     assert!(res.errors.is_none());
     let data = res.data.unwrap();
     assert!(!data.viewer.dashboard.persons.is_empty());
+
+    let person_id = data.viewer.dashboard.persons[0].id;
+
+    /* --- addExpense --- */
+    // Arrange
+    let body = json!({
+        "query": r#"
+            mutation IT_ADD_EXPENSE($input: AddExpenseInput!) {
+                addExpense(input: $input)
+            }
+        "#,
+        "variables": {
+            "input": {
+                "personId": person_id,
+                "name": "Burger King",
+                "amount": 20
+            }
+        }
+    });
+
+    // Act
+    let res = client
+        .post(&format!("{}/graphql", app.address))
+        .header(reqwest::header::AUTHORIZATION, &bearer)
+        .json(&body)
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(200, res.status());
+
+    let res = res
+        .json::<GraphQLResponse<AddExpense>>()
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none());
+
+    /* --- Check mutation results --- */
+    // Arrange
+    let body = json!({
+        "query": r#"
+            query IT_VIEWER {
+                viewer {
+                    dashboard {
+                        persons {
+                            id
+                        }
+                        expenses {
+                            id
+                        }
+                    }
+                }
+            }
+        "#
+    });
+
+    // Act
+    let res = client
+        .post(&format!("{}/graphql", app.address))
+        .header(reqwest::header::AUTHORIZATION, &bearer)
+        .json(&body)
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(200, res.status());
+
+    let res = res
+        .json::<GraphQLResponse<Viewer>>()
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none());
+    let data = res.data.unwrap();
+    assert!(!data.viewer.dashboard.expenses.is_empty());
 }
 
 #[actix_rt::test]
@@ -289,4 +367,10 @@ struct Expense {
 #[serde(rename_all = "camelCase")]
 struct AddPerson {
     add_person: bool,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AddExpense {
+    add_expense: bool,
 }

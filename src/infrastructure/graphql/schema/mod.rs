@@ -193,6 +193,63 @@ impl Mutation {
             }
         }
     }
+
+    // FIXME: Extract domain and repository logic to own module
+    /// Adds an expense to the current dashboard.
+    fn addExpense(context: &Context, input: AddExpenseInput) -> Result<bool, GraphQLError> {
+        let AddExpenseInput {
+            person_id,
+            name,
+            amount,
+        } = input;
+        // Check input validity
+        let person_id = match uuid::Uuid::parse_str(person_id.as_str()) {
+            Err(e) => return Err(GraphQLError::InvalidId),
+            Ok(u) => u,
+        };
+
+        if amount < 1 {
+            return Err(GraphQLError::InvalidAmount);
+        }
+        // Add this expense to the viewer's dashboard if the person exsits
+        // FIXME: Very inefficient query. Should use joins instead ?
+        let result = repositories::UserRepository::find_one(context.viewer.id(), &context.db_pool)
+            .and_then(|o| {
+                o.map(|u| repositories::DashboardRepository::find_one_by_user(&u, &context.db_pool))
+                    .transpose()
+            })
+            .and_then(|o| {
+                o.map(|d| {
+                    repositories::PersonRepository::find_by_dashboard(&d, &context.db_pool)
+                        .map(|v| (d.id, v))
+                })
+                .transpose()
+            });
+
+        match result {
+            Err(e) => Err(GraphQLError::InternalServerError(e)),
+            Ok(None) => Err(GraphQLError::InternalServerError(anyhow::anyhow!(
+                "Couldn't find this viewer's data"
+            ))),
+            Ok(Some((dashboard_id, v))) => {
+                if !v.iter().any(|p| p.id == person_id) {
+                    Err(GraphQLError::PersonNotFound)
+                } else {
+                    // Add this person to viewer's dashboard
+                    let new_expense = repositories::NewExpense {
+                        id: uuid::Uuid::new_v4(),
+                        dashboard_id,
+                        person_id,
+                        name,
+                        amount,
+                    };
+                    repositories::ExpenseRepository::save(&new_expense, &context.db_pool)
+                        .map_err(GraphQLError::InternalServerError)
+                        .map(|_| true)
+                }
+            }
+        }
+    }
 }
 
 pub struct Context {

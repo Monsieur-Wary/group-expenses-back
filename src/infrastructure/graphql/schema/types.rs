@@ -112,3 +112,10 @@ pub struct AddPersonInput {
     pub name: String,
     pub resources: i32,
 }
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct AddExpenseInput {
+    pub person_id: String,
+    pub name: String,
+    pub amount: i32,
+}

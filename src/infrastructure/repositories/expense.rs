@@ -29,4 +29,21 @@ impl ExpenseRepository {
                 dashboard.id
             ))
     }
+
+    pub fn save(new_expense: &NewExpense, pool: &PostgresPool) -> anyhow::Result<Expense> {
+        diesel::insert_into(expenses::table)
+            .values(new_expense)
+            .get_result::<Expense>(&pool.get()?)
+            .context("Couldn't save this expense to the database")
+    }
+}
+
+#[derive(Insertable)]
+#[table_name = "expenses"]
+pub struct NewExpense {
+    pub id: uuid::Uuid,
+    pub dashboard_id: uuid::Uuid,
+    pub person_id: uuid::Uuid,
+    pub name: String,
+    pub amount: i32,
 }
