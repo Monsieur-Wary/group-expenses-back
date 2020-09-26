@@ -34,6 +34,14 @@ impl PersonRepository {
             .get_result::<Person>(&pool.get()?)
             .context("Couldn't save this person to the database")
     }
+
+    pub fn delete_one(id: uuid::Uuid, pool: &PostgresPool) -> anyhow::Result<()> {
+        diesel::delete(persons::table)
+            .filter(persons::id.eq(id))
+            .execute(&pool.get()?)
+            .context(format!("Couldn't delete this person ({})", id))
+            .map(|_| ())
+    }
 }
 
 #[derive(Insertable)]

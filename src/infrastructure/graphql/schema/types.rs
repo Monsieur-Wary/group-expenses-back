@@ -119,3 +119,13 @@ pub struct AddExpenseInput {
     pub name: String,
     pub amount: i32,
 }
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct RemovePersonInput {
+    pub person_id: String,
+}
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct RemoveExpenseInput {
+    pub expense_id: String,
+}

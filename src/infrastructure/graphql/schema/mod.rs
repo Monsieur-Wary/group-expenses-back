@@ -250,6 +250,36 @@ impl Mutation {
             }
         }
     }
+
+    // FIXME: Extract domain and repository logic to own module
+    /// Remove a person on the current dashboard. Idempotent mutation.
+    fn removePerson(context: &Context, input: RemovePersonInput) -> Result<bool, GraphQLError> {
+        let RemovePersonInput { person_id } = input;
+        // Check input validity
+        let person_id = match uuid::Uuid::parse_str(person_id.as_str()) {
+            Err(e) => return Err(GraphQLError::InvalidId),
+            Ok(u) => u,
+        };
+        // Delete the person
+        repositories::PersonRepository::delete_one(person_id, &context.db_pool)
+            .map_err(GraphQLError::InternalServerError)
+            .map(|_| true)
+    }
+
+    // FIXME: Extract domain and repository logic to own module
+    /// Remove an expense on the current dashboard. Idempotent mutation.
+    fn removeExpense(context: &Context, input: RemoveExpenseInput) -> Result<bool, GraphQLError> {
+        let RemoveExpenseInput { expense_id } = input;
+        // Check input validity
+        let expense_id = match uuid::Uuid::parse_str(expense_id.as_str()) {
+            Err(e) => return Err(GraphQLError::InvalidId),
+            Ok(u) => u,
+        };
+        // Delete the expense
+        repositories::ExpenseRepository::delete_one(expense_id, &context.db_pool)
+            .map_err(GraphQLError::InternalServerError)
+            .map(|_| true)
+    }
 }
 
 pub struct Context {

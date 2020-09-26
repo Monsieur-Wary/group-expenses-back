@@ -36,6 +36,14 @@ impl ExpenseRepository {
             .get_result::<Expense>(&pool.get()?)
             .context("Couldn't save this expense to the database")
     }
+
+    pub fn delete_one(id: uuid::Uuid, pool: &PostgresPool) -> anyhow::Result<()> {
+        diesel::delete(expenses::table)
+            .filter(expenses::id.eq(id))
+            .execute(&pool.get()?)
+            .context(format!("Couldn't delete this expense ({})", id))
+            .map(|_| ())
+    }
 }
 
 #[derive(Insertable)]
