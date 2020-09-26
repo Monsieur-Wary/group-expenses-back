@@ -10,6 +10,47 @@ pub struct Query;
 #[juniper::object(Context = Context)]
 impl Query {
     // FIXME: Extract domain and repository logic to own module
+    /// Login a user.
+    fn login(context: &Context, email: String, password: String) -> Result<String, GraphQLError> {
+        // Check email validity and password validity
+        if !regex::Regex::new(r"^\S+@\S+\.\S+$")
+            .unwrap()
+            .is_match(&email)
+            // https://stackoverflow.com/a/46290728
+            || !(8..=64).contains(&password.graphemes(true).count())
+        {
+            return Err(GraphQLError::InvalidEmailAddress);
+        }
+
+        match repositories::UserRepository::find_one_by_email(&email[..], &context.db_pool) {
+            Err(e) => Err(GraphQLError::InternalServerError(e)),
+            Ok(None) => Err(GraphQLError::InvalidCredentials),
+            Ok(Some(user)) => {
+                match security::verify_password(password.as_bytes(), &user.password[..]) {
+                    Err(e) => Err(GraphQLError::InternalServerError(e)),
+                    Ok(verified) => {
+                        if !verified {
+                            Err(GraphQLError::InvalidCredentials)
+                        } else {
+                            // Sign token
+                            let token = match security::sign_token(
+                                user.id,
+                                context.config.security().token_expiration_time(),
+                                context.config.security().secret_key(),
+                            ) {
+                                Err(e) => return Err(GraphQLError::InternalServerError(e)),
+                                Ok(token) => token,
+                            };
+
+                            Ok(token)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // FIXME: Extract domain and repository logic to own module
     /// The authenticated user.
     /// This is a user context dependant query.
     fn viewer(context: &Context) -> Result<User, GraphQLError> {
@@ -98,47 +139,6 @@ impl Mutation {
         };
 
         Ok(token)
-    }
-
-    // FIXME: Extract domain and repository logic to own module
-    /// Login a user.
-    fn login(context: &Context, email: String, password: String) -> Result<String, GraphQLError> {
-        // Check email validity and password validity
-        if !regex::Regex::new(r"^\S+@\S+\.\S+$")
-            .unwrap()
-            .is_match(&email)
-            // https://stackoverflow.com/a/46290728
-            || !(8..=64).contains(&password.graphemes(true).count())
-        {
-            return Err(GraphQLError::InvalidEmailAddress);
-        }
-
-        match repositories::UserRepository::find_one_by_email(&email[..], &context.db_pool) {
-            Err(e) => Err(GraphQLError::InternalServerError(e)),
-            Ok(None) => Err(GraphQLError::InvalidCredentials),
-            Ok(Some(user)) => {
-                match security::verify_password(password.as_bytes(), &user.password[..]) {
-                    Err(e) => Err(GraphQLError::InternalServerError(e)),
-                    Ok(verified) => {
-                        if !verified {
-                            Err(GraphQLError::InvalidCredentials)
-                        } else {
-                            // Sign token
-                            let token = match security::sign_token(
-                                user.id,
-                                context.config.security().token_expiration_time(),
-                                context.config.security().secret_key(),
-                            ) {
-                                Err(e) => return Err(GraphQLError::InternalServerError(e)),
-                                Ok(token) => token,
-                            };
-
-                            Ok(token)
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 

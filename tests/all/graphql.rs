@@ -46,7 +46,7 @@ async fn graphql_api_should_work() {
     // Arrange
     let body = json!({
         "query": r#"
-            mutation IT_LOGIN($email: String!, $password: String!) {
+            query IT_LOGIN($email: String!, $password: String!) {
                 login(email: $email, password: $password)
             }
         "#,
