@@ -6,19 +6,21 @@ async fn graphql_api_should_work() {
     let app = helpers::spawn_app();
     let client = reqwest::Client::new();
 
-    /* --- SignUp --- */
+    /* --- Signup --- */
     // Arrange
     let email = format!("{}@htest.com", uuid::Uuid::new_v4());
     let pwd = String::from("hihihihi");
     let body = json!({
         "query": r#"
-            mutation IT_SIGNUP($email: String!, $password: String!) {
-                signup(email: $email, password: $password)
+            mutation IT_SIGNUP($input: SignupInput!) {
+                signup(input: $input)
             }
         "#,
         "variables": {
-            "email": email,
-            "password": pwd
+            "input": {
+                "email": email,
+                "password": pwd
+            }
         }
     });
 
@@ -38,7 +40,7 @@ async fn graphql_api_should_work() {
         .expect("Failed to convert response to json");
 
     // Assert
-    assert_eq!(None, res.errors);
+    assert!(res.errors.is_none());
     let data = res.data.unwrap();
     assert!(!data.signup.is_empty());
 
@@ -72,9 +74,147 @@ async fn graphql_api_should_work() {
         .expect("Failed to convert response to json");
 
     // Assert
-    assert_eq!(None, res.errors);
+    assert!(res.errors.is_none());
     let data = res.data.unwrap();
     assert!(!data.login.is_empty());
+
+    let bearer = format!("Bearer {}", data.login);
+
+    /* --- viewer --- */
+    // Arrange
+    let body = json!({
+        "query": r#"
+            query IT_VIEWER {
+                viewer {
+                    dashboard {
+                        persons {
+                            id
+                        }
+                        expenses {
+                            id
+                        }
+                    }
+                }
+            }
+        "#
+    });
+
+    // Act
+    let res = client
+        .post(&format!("{}/graphql", app.address))
+        .header(reqwest::header::AUTHORIZATION, &bearer)
+        .json(&body)
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(200, res.status());
+
+    let res = res
+        .json::<GraphQLResponse<Viewer>>()
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none());
+    let data = res.data.unwrap();
+    assert!(data.viewer.dashboard.persons.is_empty());
+    assert!(data.viewer.dashboard.expenses.is_empty());
+
+    /* --- addPerson --- */
+    // Arrange
+    let body = json!({
+        "query": r#"
+            mutation IT_ADD_PERSON($input: AddPersonInput!) {
+                addPerson(input: $input)
+            }
+        "#,
+        "variables": {
+            "input": {
+                "name": "Mary",
+                "resources": 0
+            }
+        }
+    });
+
+    // Act
+    let res = client
+        .post(&format!("{}/graphql", app.address))
+        .header(reqwest::header::AUTHORIZATION, &bearer)
+        .json(&body)
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(200, res.status());
+
+    let res = res
+        .json::<GraphQLResponse<AddPerson>>()
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none());
+
+    /* --- Shouldn't be able to create duplicate person --- */
+    // Act
+    let res = client
+        .post(&format!("{}/graphql", app.address))
+        .header(reqwest::header::AUTHORIZATION, &bearer)
+        .json(&body)
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(200, res.status());
+
+    let res = res
+        .json::<GraphQLResponse<AddPerson>>()
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_some());
+
+    /* --- Check mutation results --- */
+    // Arrange
+    let body = json!({
+        "query": r#"
+            query IT_VIEWER {
+                viewer {
+                    dashboard {
+                        persons {
+                            id
+                        }
+                        expenses {
+                            id
+                        }
+                    }
+                }
+            }
+        "#
+    });
+
+    // Act
+    let res = client
+        .post(&format!("{}/graphql", app.address))
+        .header(reqwest::header::AUTHORIZATION, &bearer)
+        .json(&body)
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(200, res.status());
+
+    let res = res
+        .json::<GraphQLResponse<Viewer>>()
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none());
+    let data = res.data.unwrap();
+    assert!(!data.viewer.dashboard.persons.is_empty());
 }
 
 #[actix_rt::test]
@@ -118,4 +258,35 @@ struct Signup {
 #[derive(serde::Deserialize)]
 struct Login {
     login: String,
+}
+
+#[derive(serde::Deserialize)]
+struct Viewer {
+    viewer: User,
+}
+
+#[derive(serde::Deserialize)]
+struct User {
+    dashboard: Dashboard,
+}
+#[derive(serde::Deserialize)]
+struct Dashboard {
+    persons: Vec<Person>,
+    expenses: Vec<Expense>,
+}
+
+#[derive(serde::Deserialize)]
+struct Person {
+    id: uuid::Uuid,
+}
+
+#[derive(serde::Deserialize)]
+struct Expense {
+    id: uuid::Uuid,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AddPerson {
+    add_person: bool,
 }

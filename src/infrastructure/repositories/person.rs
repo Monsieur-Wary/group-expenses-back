@@ -24,7 +24,23 @@ impl PersonRepository {
             .load(&pool.get()?)
             .context(format!(
                 "Couldn't find this dashboard's ({}) persons",
-                dashboard.id
+                dashboard.id,
             ))
     }
+
+    pub fn save(new_person: &NewPerson, pool: &PostgresPool) -> anyhow::Result<Person> {
+        diesel::insert_into(persons::table)
+            .values(new_person)
+            .get_result::<Person>(&pool.get()?)
+            .context("Couldn't save this person to the database")
+    }
+}
+
+#[derive(Insertable)]
+#[table_name = "persons"]
+pub struct NewPerson {
+    pub id: uuid::Uuid,
+    pub dashboard_id: uuid::Uuid,
+    pub name: String,
+    pub resources: i32,
 }

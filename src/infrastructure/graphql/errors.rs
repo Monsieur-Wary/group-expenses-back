@@ -4,8 +4,11 @@ pub enum GraphQLError {
     InvalidPassword,
     InvalidEmailAddress,
     InvalidCredentials,
+    InvalidName,
+    InvalidResources,
     AlreadyUsedEmail,
     UserNotFound,
+    NonUniqueName(String),
     InternalServerError(anyhow::Error),
 }
 
@@ -30,6 +33,18 @@ impl juniper::IntoFieldError for GraphQLError {
                     "code": "INVALID_CREDENTIALS"
                 }),
             ),
+            GraphQLError::InvalidName => juniper::FieldError::new(
+                "The name is invalid!",
+                graphql_value!({
+                    "code": "INVALID_NAME"
+                }),
+            ),
+            GraphQLError::InvalidResources => juniper::FieldError::new(
+                "The resources are invalid!",
+                graphql_value!({
+                    "code": "INVALID_RESOURCES"
+                }),
+            ),
             GraphQLError::AlreadyUsedEmail => juniper::FieldError::new(
                 "The email address is already used!",
                 graphql_value!({
@@ -40,6 +55,12 @@ impl juniper::IntoFieldError for GraphQLError {
                 "The viewer was not found!",
                 graphql_value!({
                     "code": "USER_NOT_FOUND"
+                }),
+            ),
+            GraphQLError::NonUniqueName(n) => juniper::FieldError::new(
+                format!("The person's name ({}) is not unique!", n),
+                graphql_value!({
+                    "code": "NAME_NOT_UNIQUE"
                 }),
             ),
             // https://docs.rs/anyhow/1.0.26/anyhow/struct.Error.html#display-representations

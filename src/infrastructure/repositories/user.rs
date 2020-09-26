@@ -15,7 +15,7 @@ pub struct User {
 // FIXME: Create a singleton with a pool field to avoid having to pass it to every methods.
 pub struct UserRepository;
 impl UserRepository {
-    pub fn find_one(id: uuid::Uuid, pool: &PostgresPool) -> anyhow::Result<Option<User>> {
+    pub fn find_one(id: &uuid::Uuid, pool: &PostgresPool) -> anyhow::Result<Option<User>> {
         users::table
             .find(id)
             .first(&pool.get()?)

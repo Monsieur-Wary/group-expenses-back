@@ -100,3 +100,15 @@ impl From<repositories::Person> for Person {
         Person(row)
     }
 }
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct SignupInput {
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct AddPersonInput {
+    pub name: String,
+    pub resources: i32,
+}

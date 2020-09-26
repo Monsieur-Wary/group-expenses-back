@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS persons (
     id UUID PRIMARY KEY,
     dashboard_id UUID NOT NULL,
     name VARCHAR(100) NOT NULL,
-    resources INT NOT NULL CHECK (resources > 0),
+    resources INT NOT NULL CHECK (resources >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (dashboard_id) REFERENCES dashboards(id) ON DELETE CASCADE
