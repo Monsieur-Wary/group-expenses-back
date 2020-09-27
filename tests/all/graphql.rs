@@ -82,16 +82,20 @@ async fn graphql_api_should_work() {
 
     /* --- viewer --- */
     // Arrange
-    let body = json!({
+    let viewer_body = json!({
         "query": r#"
             query IT_VIEWER {
                 viewer {
                     dashboard {
                         persons {
                             id
+                            name
+                            resources
                         }
                         expenses {
                             id
+                            name
+                            amount
                         }
                     }
                 }
@@ -103,7 +107,7 @@ async fn graphql_api_should_work() {
     let res = client
         .post(&format!("{}/graphql", app.address))
         .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&body)
+        .json(&viewer_body)
         .send()
         .await
         .expect("Failed to execute request");
@@ -177,29 +181,11 @@ async fn graphql_api_should_work() {
     assert!(res.errors.is_some());
 
     /* --- Check mutation results --- */
-    // Arrange
-    let body = json!({
-        "query": r#"
-            query IT_VIEWER {
-                viewer {
-                    dashboard {
-                        persons {
-                            id
-                        }
-                        expenses {
-                            id
-                        }
-                    }
-                }
-            }
-        "#
-    });
-
     // Act
     let res = client
         .post(&format!("{}/graphql", app.address))
         .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&body)
+        .json(&viewer_body)
         .send()
         .await
         .expect("Failed to execute request");
@@ -217,6 +203,42 @@ async fn graphql_api_should_work() {
     assert!(!data.viewer.dashboard.persons.is_empty());
 
     let person_id = data.viewer.dashboard.persons[0].id;
+
+    /* --- updatePerson --- */
+    // Arrange
+    let new_resources = 10;
+    let body = json!({
+        "query": r#"
+            mutation IT_UPDATE_PERSON($input: UpdatePersonInput!) {
+                updatePerson(input: $input)
+            }
+        "#,
+        "variables": {
+            "input": {
+                "personId": person_id,
+                "resources": new_resources
+            }
+        }
+    });
+
+    // Act
+    let res = client
+        .post(&format!("{}/graphql", app.address))
+        .header(reqwest::header::AUTHORIZATION, &bearer)
+        .json(&body)
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(200, res.status());
+
+    let res = res
+        .json::<GraphQLResponse<UpdatePerson>>()
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
 
     /* --- addExpense --- */
     // Arrange
@@ -255,29 +277,11 @@ async fn graphql_api_should_work() {
     assert!(res.errors.is_none());
 
     /* --- Check mutation results --- */
-    // Arrange
-    let body = json!({
-        "query": r#"
-            query IT_VIEWER {
-                viewer {
-                    dashboard {
-                        persons {
-                            id
-                        }
-                        expenses {
-                            id
-                        }
-                    }
-                }
-            }
-        "#
-    });
-
     // Act
     let res = client
         .post(&format!("{}/graphql", app.address))
         .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&body)
+        .json(&viewer_body)
         .send()
         .await
         .expect("Failed to execute request");
@@ -292,6 +296,7 @@ async fn graphql_api_should_work() {
     // Assert
     assert!(res.errors.is_none());
     let data = res.data.unwrap();
+    assert_eq!(data.viewer.dashboard.persons[0].resources, new_resources);
     assert!(!data.viewer.dashboard.expenses.is_empty());
 
     /* --- removePerson --- */
@@ -329,29 +334,11 @@ async fn graphql_api_should_work() {
     assert!(res.errors.is_none());
 
     /* --- Check mutation results --- */
-    // Arrange
-    let body = json!({
-        "query": r#"
-            query IT_VIEWER {
-                viewer {
-                    dashboard {
-                        persons {
-                            id
-                        }
-                        expenses {
-                            id
-                        }
-                    }
-                }
-            }
-        "#
-    });
-
     // Act
     let res = client
         .post(&format!("{}/graphql", app.address))
         .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&body)
+        .json(&viewer_body)
         .send()
         .await
         .expect("Failed to execute request");
@@ -428,28 +415,44 @@ struct Dashboard {
     expenses: Vec<Expense>,
 }
 
+#[allow(dead_code)]
 #[derive(serde::Deserialize)]
 struct Person {
     id: uuid::Uuid,
+    name: String,
+    resources: i32,
 }
 
+#[allow(dead_code)]
 #[derive(serde::Deserialize)]
 struct Expense {
     id: uuid::Uuid,
+    name: String,
+    amount: i32,
 }
 
+#[allow(dead_code)]
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AddPerson {
     add_person: bool,
 }
 
+#[allow(dead_code)]
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdatePerson {
+    update_person: bool,
+}
+
+#[allow(dead_code)]
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AddExpense {
     add_expense: bool,
 }
 
+#[allow(dead_code)]
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RemovePerson {

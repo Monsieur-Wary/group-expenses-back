@@ -4,7 +4,6 @@ use diesel::prelude::*;
 
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
 #[belongs_to(Dashboard)]
-#[table_name = "persons"]
 pub struct Person {
     pub id: uuid::Uuid,
     pub dashboard_id: uuid::Uuid,
@@ -35,7 +34,19 @@ impl PersonRepository {
             .context("Couldn't save this person to the database")
     }
 
-    pub fn delete_one(id: uuid::Uuid, pool: &PostgresPool) -> anyhow::Result<()> {
+    pub fn update_one(person: &UpdatePerson, pool: &PostgresPool) -> anyhow::Result<()> {
+        if person.name.is_none() && person.resources.is_none() {
+            return Ok(());
+        }
+
+        diesel::update(persons::table.filter(persons::id.eq(person.id)))
+            .set(person)
+            .execute(&pool.get()?)
+            .context("Couldn't update this person to the database")
+            .map(|_| ())
+    }
+
+    pub fn delete_one(id: &uuid::Uuid, pool: &PostgresPool) -> anyhow::Result<()> {
         diesel::delete(persons::table)
             .filter(persons::id.eq(id))
             .execute(&pool.get()?)
@@ -51,4 +62,12 @@ pub struct NewPerson {
     pub dashboard_id: uuid::Uuid,
     pub name: String,
     pub resources: i32,
+}
+
+#[derive(AsChangeset)]
+#[table_name = "persons"]
+pub struct UpdatePerson {
+    pub id: uuid::Uuid,
+    pub name: Option<String>,
+    pub resources: Option<i32>,
 }

@@ -252,6 +252,54 @@ impl Mutation {
     }
 
     // FIXME: Extract domain and repository logic to own module
+    /// Update a person on the current dashboard. Idempotent mutation.
+    fn updatePerson(context: &Context, input: UpdatePersonInput) -> Result<bool, GraphQLError> {
+        let UpdatePersonInput {
+            person_id,
+            name,
+            resources,
+        } = input;
+        // Check input validity
+        let person_id = match uuid::Uuid::parse_str(person_id.as_str()) {
+            Err(e) => return Err(GraphQLError::InvalidId),
+            Ok(u) => u,
+        };
+
+        let person = repositories::UpdatePerson {
+            id: person_id,
+            name,
+            resources,
+        };
+        repositories::PersonRepository::update_one(&person, &context.db_pool)
+            .map_err(GraphQLError::InternalServerError)
+            .map(|_| true)
+    }
+
+    // FIXME: Extract domain and repository logic to own module
+    /// Update an expense on the current dashboard. Idempotent mutation.
+    fn updateExpense(context: &Context, input: UpdateExpenseInput) -> Result<bool, GraphQLError> {
+        let UpdateExpenseInput {
+            expense_id,
+            name,
+            amount,
+        } = input;
+        // Check input validity
+        let expense_id = match uuid::Uuid::parse_str(expense_id.as_str()) {
+            Err(e) => return Err(GraphQLError::InvalidId),
+            Ok(u) => u,
+        };
+
+        let expense = repositories::UpdateExpense {
+            id: expense_id,
+            name,
+            amount,
+        };
+        repositories::ExpenseRepository::update_one(&expense, &context.db_pool)
+            .map_err(GraphQLError::InternalServerError)
+            .map(|_| true)
+    }
+
+    // FIXME: Extract domain and repository logic to own module
     /// Remove a person on the current dashboard. Idempotent mutation.
     fn removePerson(context: &Context, input: RemovePersonInput) -> Result<bool, GraphQLError> {
         let RemovePersonInput { person_id } = input;
@@ -261,7 +309,7 @@ impl Mutation {
             Ok(u) => u,
         };
         // Delete the person
-        repositories::PersonRepository::delete_one(person_id, &context.db_pool)
+        repositories::PersonRepository::delete_one(&person_id, &context.db_pool)
             .map_err(GraphQLError::InternalServerError)
             .map(|_| true)
     }
@@ -276,7 +324,7 @@ impl Mutation {
             Ok(u) => u,
         };
         // Delete the expense
-        repositories::ExpenseRepository::delete_one(expense_id, &context.db_pool)
+        repositories::ExpenseRepository::delete_one(&expense_id, &context.db_pool)
             .map_err(GraphQLError::InternalServerError)
             .map(|_| true)
     }

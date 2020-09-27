@@ -3,7 +3,6 @@ use anyhow::Context;
 use diesel::prelude::*;
 
 #[derive(Identifiable, Queryable, PartialEq, Debug)]
-#[table_name = "users"]
 pub struct User {
     pub id: uuid::Uuid,
     pub email: String,

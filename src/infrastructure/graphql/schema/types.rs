@@ -77,6 +77,14 @@ impl Expense {
     fn id(&self) -> String {
         self.0.id.to_string()
     }
+
+    fn name(&self) -> &str {
+        self.0.name.as_str()
+    }
+
+    fn amount(&self) -> &i32 {
+        &self.0.amount
+    }
 }
 
 impl From<repositories::Expense> for Expense {
@@ -92,6 +100,14 @@ pub struct Person(repositories::Person);
 impl Person {
     fn id(&self) -> String {
         self.0.id.to_string()
+    }
+
+    fn name(&self) -> &str {
+        self.0.name.as_str()
+    }
+
+    fn resources(&self) -> &i32 {
+        &self.0.resources
     }
 }
 
@@ -118,6 +134,20 @@ pub struct AddExpenseInput {
     pub person_id: String,
     pub name: String,
     pub amount: i32,
+}
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct UpdatePersonInput {
+    pub person_id: String,
+    pub name: Option<String>,
+    pub resources: Option<i32>,
+}
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct UpdateExpenseInput {
+    pub expense_id: String,
+    pub name: Option<String>,
+    pub amount: Option<i32>,
 }
 
 #[derive(juniper::GraphQLInputObject)]

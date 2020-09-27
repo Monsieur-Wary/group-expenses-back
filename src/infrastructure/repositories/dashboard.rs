@@ -4,7 +4,6 @@ use diesel::prelude::*;
 
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
 #[belongs_to(User)]
-#[table_name = "dashboards"]
 pub struct Dashboard {
     pub id: uuid::Uuid,
     pub user_id: uuid::Uuid,
