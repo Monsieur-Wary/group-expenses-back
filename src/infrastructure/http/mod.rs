@@ -19,7 +19,7 @@ pub fn run(
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
             .wrap(
-                actix_cors::Cors::new()
+                actix_cors::Cors::default()
                     .allowed_methods(vec!["GET", "POST"])
                     .allowed_headers(vec![
                         http::header::AUTHORIZATION,
@@ -28,8 +28,7 @@ pub fn run(
                         http::header::ORIGIN,
                     ])
                     .max_age(3600)
-                    .supports_credentials()
-                    .finish(),
+                    .supports_credentials(),
             )
             .wrap(middleware::DefaultHeaders::default())
             .data(sync::Arc::clone(&schema))
