@@ -1,12 +1,12 @@
-use super::{dashboard::Dashboard, schema::persons, PostgresPool};
+use super::{group::Group, schema::persons, PostgresPool};
 use anyhow::Context;
 use diesel::prelude::*;
 
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
-#[belongs_to(Dashboard)]
+#[belongs_to(Group)]
 pub struct Person {
     pub id: uuid::Uuid,
-    pub dashboard_id: uuid::Uuid,
+    pub group_id: uuid::Uuid,
     pub name: String,
     pub resources: i32,
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -15,16 +15,10 @@ pub struct Person {
 
 pub struct PersonRepository;
 impl PersonRepository {
-    pub fn find_by_dashboard(
-        dashboard: &Dashboard,
-        pool: &PostgresPool,
-    ) -> anyhow::Result<Vec<Person>> {
-        Person::belonging_to(dashboard)
+    pub fn find_by_group(group: &Group, pool: &PostgresPool) -> anyhow::Result<Vec<Person>> {
+        Person::belonging_to(group)
             .load(&pool.get()?)
-            .context(format!(
-                "Couldn't find this dashboard's ({}) persons",
-                dashboard.id,
-            ))
+            .context(format!("Couldn't find this group's ({}) persons", group.id,))
     }
 
     pub fn save(new_person: &NewPerson, pool: &PostgresPool) -> anyhow::Result<Person> {
@@ -59,7 +53,7 @@ impl PersonRepository {
 #[table_name = "persons"]
 pub struct NewPerson {
     pub id: uuid::Uuid,
-    pub dashboard_id: uuid::Uuid,
+    pub group_id: uuid::Uuid,
     pub name: String,
     pub resources: i32,
 }

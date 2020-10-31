@@ -3,8 +3,8 @@ use super::*;
 pub struct User(repositories::User);
 
 impl User {
-    fn dashboard(&self, context: &Context) -> Result<Dashboard, GraphQLError> {
-        match repositories::DashboardRepository::find_one_by_user(&self.0, &context.db_pool) {
+    fn group(&self, context: &Context) -> Result<Group, GraphQLError> {
+        match repositories::GroupRepository::find_one_by_user(&self.0, &context.db_pool) {
             Err(e) => Err(GraphQLError::InternalServerError(e)),
             Ok(d) => Ok(d.into()),
         }
@@ -18,8 +18,8 @@ impl User {
         &self.0.email[..]
     }
 
-    fn dashboard(&self, context: &Context) -> Result<Dashboard, GraphQLError> {
-        self.dashboard(context)
+    fn group(&self, context: &Context) -> Result<Group, GraphQLError> {
+        self.group(context)
     }
 }
 
@@ -29,12 +29,12 @@ impl From<repositories::User> for User {
     }
 }
 
-/// A user's dashboard.
-pub struct Dashboard(repositories::Dashboard);
+/// A user's group.
+pub struct Group(repositories::Group);
 
-impl Dashboard {
+impl Group {
     fn expenses(&self, context: &Context) -> Result<Vec<Expense>, GraphQLError> {
-        match repositories::ExpenseRepository::find_by_dashboard(&self.0, &context.db_pool)
+        match repositories::ExpenseRepository::find_by_group(&self.0, &context.db_pool)
             .map(|v| v.into_iter().map(Into::into).collect::<Vec<_>>())
         {
             Err(e) => Err(GraphQLError::InternalServerError(e)),
@@ -43,7 +43,7 @@ impl Dashboard {
     }
 
     fn persons(&self, context: &Context) -> Result<Vec<Person>, GraphQLError> {
-        match repositories::PersonRepository::find_by_dashboard(&self.0, &context.db_pool)
+        match repositories::PersonRepository::find_by_group(&self.0, &context.db_pool)
             .map(|v| v.into_iter().map(Into::into).collect::<Vec<_>>())
         {
             Err(e) => Err(GraphQLError::InternalServerError(e)),
@@ -53,7 +53,7 @@ impl Dashboard {
 }
 
 #[juniper::object(Context = Context)]
-impl Dashboard {
+impl Group {
     fn expenses(&self, context: &Context) -> Result<Vec<Expense>, GraphQLError> {
         self.expenses(context)
     }
@@ -63,15 +63,15 @@ impl Dashboard {
     }
 }
 
-impl From<repositories::Dashboard> for Dashboard {
-    fn from(row: repositories::Dashboard) -> Self {
-        Dashboard(row)
+impl From<repositories::Group> for Group {
+    fn from(row: repositories::Group) -> Self {
+        Group(row)
     }
 }
 
 pub struct Expense(repositories::Expense);
 
-/// A unique dashboard expense.
+/// A unique group expense.
 #[juniper::object(Context = Context)]
 impl Expense {
     fn id(&self) -> String {
@@ -95,7 +95,7 @@ impl From<repositories::Expense> for Expense {
 
 pub struct Person(repositories::Person);
 
-/// A unique dashboard person.
+/// A unique group person.
 #[juniper::object(Context = Context)]
 impl Person {
     fn id(&self) -> String {

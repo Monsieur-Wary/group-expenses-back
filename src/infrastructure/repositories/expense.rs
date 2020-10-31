@@ -1,13 +1,13 @@
-use super::{dashboard::Dashboard, person::Person, schema::expenses, PostgresPool};
+use super::{group::Group, person::Person, schema::expenses, PostgresPool};
 use anyhow::Context;
 use diesel::prelude::*;
 
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
-#[belongs_to(Dashboard)]
+#[belongs_to(Group)]
 #[belongs_to(Person)]
 pub struct Expense {
     pub id: uuid::Uuid,
-    pub dashboard_id: uuid::Uuid,
+    pub group_id: uuid::Uuid,
     pub person_id: uuid::Uuid,
     pub name: String,
     pub amount: i32,
@@ -17,15 +17,12 @@ pub struct Expense {
 
 pub struct ExpenseRepository;
 impl ExpenseRepository {
-    pub fn find_by_dashboard(
-        dashboard: &Dashboard,
-        pool: &PostgresPool,
-    ) -> anyhow::Result<Vec<Expense>> {
-        Expense::belonging_to(dashboard)
+    pub fn find_by_group(group: &Group, pool: &PostgresPool) -> anyhow::Result<Vec<Expense>> {
+        Expense::belonging_to(group)
             .load(&pool.get()?)
             .context(format!(
-                "Couldn't find this dashboard's ({}) expenses",
-                dashboard.id
+                "Couldn't find this group's ({}) expenses",
+                group.id
             ))
     }
 
@@ -61,7 +58,7 @@ impl ExpenseRepository {
 #[table_name = "expenses"]
 pub struct NewExpense {
     pub id: uuid::Uuid,
-    pub dashboard_id: uuid::Uuid,
+    pub group_id: uuid::Uuid,
     pub person_id: uuid::Uuid,
     pub name: String,
     pub amount: i32,

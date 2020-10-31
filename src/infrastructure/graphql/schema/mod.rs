@@ -105,10 +105,10 @@ impl Mutation {
             password: hash,
         };
 
-        // Prepare the new dashboard's data
-        let dashboard_id = uuid::Uuid::new_v4();
-        let new_dashboard = repositories::NewDashboard {
-            id: dashboard_id,
+        // Prepare the new group's data
+        let group_id = uuid::Uuid::new_v4();
+        let new_group = repositories::NewGroup {
+            id: group_id,
             user_id,
         };
 
@@ -119,8 +119,7 @@ impl Mutation {
             .and_then(|conn| {
                 conn.build_transaction().run(|| {
                     repositories::UserRepository::save(&new_user, &context.db_pool).and_then(|u| {
-                        repositories::DashboardRepository::save(&new_dashboard, &context.db_pool)
-                            .map(|_| u)
+                        repositories::GroupRepository::save(&new_group, &context.db_pool).map(|_| u)
                     })
                 })
             });
@@ -144,7 +143,7 @@ impl Mutation {
     }
 
     // FIXME: Extract domain and repository logic to own module
-    /// Adds a person to the current dashboard.
+    /// Adds a person to the current group.
     fn addPerson(context: &Context, input: AddPersonInput) -> Result<bool, GraphQLError> {
         let AddPersonInput { name, resources } = input;
         // Check name validity
@@ -159,13 +158,13 @@ impl Mutation {
         // FIXME: Very inefficient query. Should use joins instead ?
         let result = repositories::UserRepository::find_one(context.viewer.id(), &context.db_pool)
             .and_then(|o| {
-                o.map(|u| repositories::DashboardRepository::find_one_by_user(&u, &context.db_pool))
+                o.map(|u| repositories::GroupRepository::find_one_by_user(&u, &context.db_pool))
                     .transpose()
             })
             .and_then(|o| {
-                o.map(|d| {
-                    repositories::PersonRepository::find_by_dashboard(&d, &context.db_pool)
-                        .map(|v| (d.id, v))
+                o.map(|g| {
+                    repositories::PersonRepository::find_by_group(&g, &context.db_pool)
+                        .map(|v| (g.id, v))
                 })
                 .transpose()
             });
@@ -175,14 +174,14 @@ impl Mutation {
             Ok(None) => Err(GraphQLError::InternalServerError(anyhow::anyhow!(
                 "Couldn't find this viewer's data"
             ))),
-            Ok(Some((dashboard_id, v))) => {
+            Ok(Some((group_id, v))) => {
                 if v.iter().any(|p| p.name == name) {
                     Err(GraphQLError::NonUniqueName(name))
                 } else {
-                    // Add this person to viewer's dashboard
+                    // Add this person to viewer's group
                     let new_person = repositories::NewPerson {
                         id: uuid::Uuid::new_v4(),
-                        dashboard_id,
+                        group_id,
                         name,
                         resources,
                     };
@@ -195,7 +194,7 @@ impl Mutation {
     }
 
     // FIXME: Extract domain and repository logic to own module
-    /// Adds an expense to the current dashboard.
+    /// Adds an expense to the current group.
     fn addExpense(context: &Context, input: AddExpenseInput) -> Result<bool, GraphQLError> {
         let AddExpenseInput {
             person_id,
@@ -211,17 +210,17 @@ impl Mutation {
         if amount < 1 {
             return Err(GraphQLError::InvalidAmount);
         }
-        // Add this expense to the viewer's dashboard if the person exsits
+        // Add this expense to the viewer's group if the person exsits
         // FIXME: Very inefficient query. Should use joins instead ?
         let result = repositories::UserRepository::find_one(context.viewer.id(), &context.db_pool)
             .and_then(|o| {
-                o.map(|u| repositories::DashboardRepository::find_one_by_user(&u, &context.db_pool))
+                o.map(|u| repositories::GroupRepository::find_one_by_user(&u, &context.db_pool))
                     .transpose()
             })
             .and_then(|o| {
-                o.map(|d| {
-                    repositories::PersonRepository::find_by_dashboard(&d, &context.db_pool)
-                        .map(|v| (d.id, v))
+                o.map(|g| {
+                    repositories::PersonRepository::find_by_group(&g, &context.db_pool)
+                        .map(|v| (g.id, v))
                 })
                 .transpose()
             });
@@ -231,14 +230,14 @@ impl Mutation {
             Ok(None) => Err(GraphQLError::InternalServerError(anyhow::anyhow!(
                 "Couldn't find this viewer's data"
             ))),
-            Ok(Some((dashboard_id, v))) => {
+            Ok(Some((group_id, v))) => {
                 if !v.iter().any(|p| p.id == person_id) {
                     Err(GraphQLError::PersonNotFound)
                 } else {
-                    // Add this person to viewer's dashboard
+                    // Add this person to viewer's group
                     let new_expense = repositories::NewExpense {
                         id: uuid::Uuid::new_v4(),
-                        dashboard_id,
+                        group_id,
                         person_id,
                         name,
                         amount,
@@ -252,7 +251,7 @@ impl Mutation {
     }
 
     // FIXME: Extract domain and repository logic to own module
-    /// Update a person on the current dashboard. Idempotent mutation.
+    /// Update a person on the current group. Idempotent mutation.
     fn updatePerson(context: &Context, input: UpdatePersonInput) -> Result<bool, GraphQLError> {
         let UpdatePersonInput {
             person_id,
@@ -276,7 +275,7 @@ impl Mutation {
     }
 
     // FIXME: Extract domain and repository logic to own module
-    /// Update an expense on the current dashboard. Idempotent mutation.
+    /// Update an expense on the current group. Idempotent mutation.
     fn updateExpense(context: &Context, input: UpdateExpenseInput) -> Result<bool, GraphQLError> {
         let UpdateExpenseInput {
             expense_id,
@@ -300,7 +299,7 @@ impl Mutation {
     }
 
     // FIXME: Extract domain and repository logic to own module
-    /// Remove a person on the current dashboard. Idempotent mutation.
+    /// Remove a person on the current group. Idempotent mutation.
     fn removePerson(context: &Context, input: RemovePersonInput) -> Result<bool, GraphQLError> {
         let RemovePersonInput { person_id } = input;
         // Check input validity
@@ -315,7 +314,7 @@ impl Mutation {
     }
 
     // FIXME: Extract domain and repository logic to own module
-    /// Remove an expense on the current dashboard. Idempotent mutation.
+    /// Remove an expense on the current group. Idempotent mutation.
     fn removeExpense(context: &Context, input: RemoveExpenseInput) -> Result<bool, GraphQLError> {
         let RemoveExpenseInput { expense_id } = input;
         // Check input validity

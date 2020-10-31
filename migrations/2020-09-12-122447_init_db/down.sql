@@ -1,4 +1,4 @@
 DROP TABLE expenses;
 DROP TABLE persons;
-DROP TABLE dashboards;
+DROP TABLE groups;
 DROP TABLE users;

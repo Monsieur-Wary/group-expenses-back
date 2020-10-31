@@ -86,7 +86,7 @@ async fn graphql_api_should_work() {
         "query": r#"
             query IT_VIEWER {
                 viewer {
-                    dashboard {
+                    group {
                         persons {
                             id
                             name
@@ -122,8 +122,8 @@ async fn graphql_api_should_work() {
     // Assert
     assert!(res.errors.is_none());
     let data = res.data.unwrap();
-    assert!(data.viewer.dashboard.persons.is_empty());
-    assert!(data.viewer.dashboard.expenses.is_empty());
+    assert!(data.viewer.group.persons.is_empty());
+    assert!(data.viewer.group.expenses.is_empty());
 
     /* --- addPerson --- */
     // Arrange
@@ -200,9 +200,9 @@ async fn graphql_api_should_work() {
     // Assert
     assert!(res.errors.is_none());
     let data = res.data.unwrap();
-    assert!(!data.viewer.dashboard.persons.is_empty());
+    assert!(!data.viewer.group.persons.is_empty());
 
-    let person_id = data.viewer.dashboard.persons[0].id;
+    let person_id = data.viewer.group.persons[0].id;
 
     /* --- updatePerson --- */
     // Arrange
@@ -296,8 +296,8 @@ async fn graphql_api_should_work() {
     // Assert
     assert!(res.errors.is_none());
     let data = res.data.unwrap();
-    assert_eq!(data.viewer.dashboard.persons[0].resources, new_resources);
-    assert!(!data.viewer.dashboard.expenses.is_empty());
+    assert_eq!(data.viewer.group.persons[0].resources, new_resources);
+    assert!(!data.viewer.group.expenses.is_empty());
 
     /* --- removePerson --- */
     // Arrange
@@ -353,8 +353,8 @@ async fn graphql_api_should_work() {
     // Assert
     assert!(res.errors.is_none());
     let data = res.data.unwrap();
-    assert!(data.viewer.dashboard.persons.is_empty());
-    assert!(data.viewer.dashboard.expenses.is_empty());
+    assert!(data.viewer.group.persons.is_empty());
+    assert!(data.viewer.group.expenses.is_empty());
 }
 
 #[actix_rt::test]
@@ -407,10 +407,10 @@ struct Viewer {
 
 #[derive(serde::Deserialize)]
 struct User {
-    dashboard: Dashboard,
+    group: Group,
 }
 #[derive(serde::Deserialize)]
-struct Dashboard {
+struct Group {
     persons: Vec<Person>,
     expenses: Vec<Expense>,
 }
