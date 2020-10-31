@@ -3,19 +3,21 @@ mod ops;
 
 use crate::infrastructure::{config, graphql as gql, repositories};
 use actix_web::{dev::Server, http, middleware, web, App, HttpServer};
-use std::sync;
 
 pub fn run(
     listener: std::net::TcpListener,
     config: config::Settings,
     db_pool: repositories::PostgresPool,
 ) -> std::result::Result<Server, std::io::Error> {
-    let schema = sync::Arc::new(gql::create_schema());
+    let config = web::Data::new(config);
+    let db_pool = web::Data::new(db_pool);
+    let schema = web::Data::new(gql::create_schema());
 
     let server = HttpServer::new(move || {
         App::new()
-            .data(db_pool.clone())
+            .app_data(db_pool.clone())
             .app_data(config.clone())
+            .app_data(schema.clone())
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
             .wrap(
@@ -28,10 +30,10 @@ pub fn run(
                         http::header::ORIGIN,
                     ])
                     .max_age(3600)
-                    .supports_credentials(),
+                    .supports_credentials()
+                    .allow_any_origin(),
             )
             .wrap(middleware::DefaultHeaders::default())
-            .data(sync::Arc::clone(&schema))
             .route("/health_check", web::get().to(ops::health_check))
             .service(
                 web::resource("/graphql")

@@ -4,11 +4,10 @@ use futures_util::future::{FutureExt, LocalBoxFuture};
 use graphql_parser::query;
 use juniper::{http, DefaultScalarValue, InputValue, ScalarValue};
 use serde::{Deserialize, Serialize};
-use std::sync;
 
 pub async fn handler(
     db_pool: web::Data<repositories::PostgresPool>,
-    schema: web::Data<sync::Arc<graphql::Schema>>,
+    schema: web::Data<graphql::Schema>,
     req: GraphQLAuthentication,
 ) -> Result<HttpResponse> {
     let config = req.config();
@@ -46,7 +45,11 @@ pub struct GraphQLAuthentication {
 
 impl GraphQLAuthentication {
     fn new(http: HttpRequest, gql: GraphQLRequest) -> Result<Self> {
-        let config = http.app_data::<config::Settings>().unwrap().clone();
+        let config = http
+            .app_data::<web::Data<config::Settings>>()
+            .expect("Couldn't extract settings")
+            .as_ref()
+            .clone();
 
         graphql_parser::parse_query::<&str>(gql.query.as_str())
             .map_err(error::ErrorBadRequest)
@@ -146,8 +149,9 @@ fn extract_graphql_operation<'a>(
 
 fn extract_and_check_token(req: &HttpRequest) -> Result<security::Viewer> {
     let secret_key = req
-        .app_data::<config::Settings>()
-        .unwrap()
+        .app_data::<web::Data<config::Settings>>()
+        .expect("Couldn't extract settings")
+        .as_ref()
         .security()
         .secret_key();
 
