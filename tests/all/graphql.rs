@@ -144,7 +144,7 @@ async fn graphql_api_should_work() {
 
     /* --- addGroup --- */
     // Arrange
-    let group_name = helpers::rand_string();
+    let group_name = "Mary";
     let body = json!({
         "query": r#"
             mutation IT_ADD_GROUP($input: AddGroupInput!) {
@@ -183,6 +183,35 @@ async fn graphql_api_should_work() {
     assert!(data.viewer.groups.len() == 1);
     assert_eq!(group_name, data.viewer.groups[0].name);
     let group_id = data.viewer.groups[0].id;
+
+    /* --- updateGroup --- */
+    // Arrange
+    let body = json!({
+        "query": r#"
+            mutation IT_UPDATE_GROUP($input: UpdateGroupInput!) {
+                updateGroup(input: $input)
+            }
+        "#,
+        "variables": {
+            "input": {
+                "personId": group_id,
+                "name": "Maria"
+            }
+        }
+    });
+
+    // Act
+    let input = GraphQLRequestInput::WithToken {
+        body: &body,
+        token: &token,
+    };
+    let res = client
+        .send::<UpdateGroup>(&input)
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
 
     /* --- addPerson --- */
     // Arrange
@@ -386,6 +415,45 @@ async fn graphql_api_should_work() {
     let data = res.data.unwrap();
     assert!(data.group.persons.is_empty());
     assert!(data.group.expenses.is_empty());
+
+    /* --- removeGroup --- */
+    // Arrange
+    let body = json!({
+        "query": r#"
+            mutation IT_REMOVE_GROUP($input: RemoveGroupInput!) {
+                removeGroup(input: $input)
+            }
+        "#,
+        "variables": {
+            "input": {
+                "groupId": group_id
+            }
+        }
+    });
+
+    // Act
+    let input = GraphQLRequestInput::WithToken {
+        body: &body,
+        token: &token,
+    };
+    let res = client
+        .send::<RemoveGroup>(&input)
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
+
+    /* --- Check Mutation result --- */
+    let res = client
+        .send::<Viewer>(&viewer_input)
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
+    let data = res.data.unwrap();
+    assert!(data.viewer.groups.is_empty());
 }
 
 #[actix_rt::test]
@@ -482,6 +550,13 @@ struct AddGroup {
 #[allow(dead_code)]
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct UpdateGroup {
+    update_group: bool,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AddPerson {
     add_person: bool,
 }
@@ -505,4 +580,11 @@ struct AddExpense {
 #[serde(rename_all = "camelCase")]
 struct RemovePerson {
     remove_person: bool,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoveGroup {
+    remove_group: bool,
 }

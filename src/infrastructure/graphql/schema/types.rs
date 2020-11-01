@@ -152,6 +152,12 @@ pub struct AddGroupInput {
 }
 
 #[derive(juniper::GraphQLInputObject)]
+pub struct UpdateGroupInput {
+    pub person_id: String,
+    pub name: Option<String>,
+}
+
+#[derive(juniper::GraphQLInputObject)]
 pub struct AddPersonInput {
     pub group_id: String,
     pub name: String,
@@ -178,6 +184,11 @@ pub struct UpdateExpenseInput {
     pub expense_id: String,
     pub name: Option<String>,
     pub amount: Option<i32>,
+}
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct RemoveGroupInput {
+    pub group_id: String,
 }
 
 #[derive(juniper::GraphQLInputObject)]

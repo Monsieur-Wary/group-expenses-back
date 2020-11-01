@@ -312,6 +312,26 @@ impl Mutation {
     }
 
     // FIXME: Extract domain and repository logic to own module
+    /// Update a group. Idempotent mutation.
+    /// This is a user context dependant mutation.
+    fn updateGroup(context: &Context, input: UpdateGroupInput) -> Result<bool, GraphQLError> {
+        let UpdateGroupInput { person_id, name } = input;
+        // Check input validity
+        let person_id = match uuid::Uuid::parse_str(person_id.as_str()) {
+            Err(e) => return Err(GraphQLError::InvalidId),
+            Ok(u) => u,
+        };
+
+        let person = repositories::UpdateGroup {
+            id: person_id,
+            name,
+        };
+        repositories::GroupRepository::update_one(&person, &context.db_pool)
+            .map_err(GraphQLError::InternalServerError)
+            .map(|_| true)
+    }
+
+    // FIXME: Extract domain and repository logic to own module
     /// Update a person. Idempotent mutation.
     /// This is a user context dependant mutation.
     fn updatePerson(context: &Context, input: UpdatePersonInput) -> Result<bool, GraphQLError> {
@@ -357,6 +377,22 @@ impl Mutation {
             amount,
         };
         repositories::ExpenseRepository::update_one(&expense, &context.db_pool)
+            .map_err(GraphQLError::InternalServerError)
+            .map(|_| true)
+    }
+
+    // FIXME: Extract domain and repository logic to own module
+    /// Remove a group. Idempotent mutation.
+    /// This is a user context dependant mutation.
+    fn removeGroup(context: &Context, input: RemoveGroupInput) -> Result<bool, GraphQLError> {
+        let RemoveGroupInput { group_id } = input;
+        // Check input validity
+        let group_id = match uuid::Uuid::parse_str(group_id.as_str()) {
+            Err(e) => return Err(GraphQLError::InvalidId),
+            Ok(u) => u,
+        };
+        // Delete the group
+        repositories::GroupRepository::delete_one(&group_id, &context.db_pool)
             .map_err(GraphQLError::InternalServerError)
             .map(|_| true)
     }
