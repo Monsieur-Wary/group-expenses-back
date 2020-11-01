@@ -1,4 +1,5 @@
 use crate::embedded_migrations;
+use rand::{distributions, Rng};
 use std::env;
 
 lazy_static! {
@@ -46,4 +47,11 @@ fn configure_database(db_config: &group_expenses::Settings) -> group_expenses::P
 
 pub struct TestApp {
     pub address: String,
+}
+
+pub fn rand_string() -> String {
+    rand::thread_rng()
+        .sample_iter(&distributions::Alphanumeric)
+        .take(10)
+        .collect()
 }

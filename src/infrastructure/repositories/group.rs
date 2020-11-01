@@ -7,16 +7,17 @@ use diesel::prelude::*;
 pub struct Group {
     pub id: uuid::Uuid,
     pub user_id: uuid::Uuid,
+    pub name: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 pub struct GroupRepository;
 impl GroupRepository {
-    pub fn find_one_by_user(user: &User, pool: &PostgresPool) -> anyhow::Result<Group> {
+    pub fn find_by_user(user: &User, pool: &PostgresPool) -> anyhow::Result<Vec<Group>> {
         Group::belonging_to(user)
-            .first(&pool.get()?)
-            .context(format!("Couldn't find this user's ({}) group", user.id))
+            .load(&pool.get()?)
+            .context(format!("Couldn't find this user's ({}) groups", user.id))
     }
 
     pub fn save(new_group: &NewGroup, pool: &PostgresPool) -> anyhow::Result<Group> {
@@ -32,4 +33,5 @@ impl GroupRepository {
 pub struct NewGroup {
     pub id: uuid::Uuid,
     pub user_id: uuid::Uuid,
+    pub name: String,
 }

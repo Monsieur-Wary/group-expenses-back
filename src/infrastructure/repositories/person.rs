@@ -18,7 +18,7 @@ impl PersonRepository {
     pub fn find_by_group(group: &Group, pool: &PostgresPool) -> anyhow::Result<Vec<Person>> {
         Person::belonging_to(group)
             .load(&pool.get()?)
-            .context(format!("Couldn't find this group's ({}) persons", group.id,))
+            .context(format!("Couldn't find this group's ({}) persons", group.id))
     }
 
     pub fn save(new_person: &NewPerson, pool: &PostgresPool) -> anyhow::Result<Person> {

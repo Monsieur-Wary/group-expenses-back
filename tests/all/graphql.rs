@@ -1,14 +1,54 @@
 use crate::helpers;
 use serde_json::json;
 
+struct GraphQLClient {
+    url: String,
+    client: reqwest::Client,
+}
+
+enum GraphQLRequestInput<'a> {
+    WithToken {
+        body: &'a serde_json::Value,
+        token: &'a str,
+    },
+    WithoutToken {
+        body: &'a serde_json::Value,
+    },
+}
+
+impl GraphQLClient {
+    fn new(url: String) -> Self {
+        let client = reqwest::Client::new();
+        GraphQLClient { client, url }
+    }
+
+    async fn send<T>(&self, input: &GraphQLRequestInput<'_>) -> reqwest::Result<GraphQLResponse<T>>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let req = self.client.post(&self.url);
+        let req = match input {
+            GraphQLRequestInput::WithoutToken { body } => req.json(body),
+            GraphQLRequestInput::WithToken { body, token } => req
+                .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", token))
+                .json(body),
+        };
+        let res = req.send().await?;
+
+        assert_eq!(200, res.status());
+
+        res.json::<GraphQLResponse<T>>().await
+    }
+}
+
 #[actix_rt::test]
 async fn graphql_api_should_work() {
     let app = helpers::spawn_app();
-    let client = reqwest::Client::new();
+    let client = GraphQLClient::new(format!("{}/graphql", app.address));
 
     /* --- Signup --- */
     // Arrange
-    let email = format!("{}@htest.com", uuid::Uuid::new_v4());
+    let email = format!("{}@htest.com", helpers::rand_string());
     let pwd = String::from("hihihihi");
     let body = json!({
         "query": r#"
@@ -25,22 +65,14 @@ async fn graphql_api_should_work() {
     });
 
     // Act
+    let input = GraphQLRequestInput::WithoutToken { body: &body };
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .json(&body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<Signup>>()
+        .send::<Signup>(&input)
         .await
         .expect("Failed to convert response to json");
 
     // Assert
-    assert!(res.errors.is_none());
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
     let data = res.data.unwrap();
     assert!(!data.signup.is_empty());
 
@@ -59,43 +91,35 @@ async fn graphql_api_should_work() {
     });
 
     // Act
+    let input = GraphQLRequestInput::WithoutToken { body: &body };
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .json(&body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<Login>>()
+        .send::<Login>(&input)
         .await
         .expect("Failed to convert response to json");
 
     // Assert
-    assert!(res.errors.is_none());
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
     let data = res.data.unwrap();
     assert!(!data.login.is_empty());
 
-    let bearer = format!("Bearer {}", data.login);
+    let token = data.login;
 
     /* --- viewer --- */
     // Arrange
-    let viewer_body = json!({
+    let body = json!({
         "query": r#"
             query IT_VIEWER {
                 viewer {
-                    group {
+                    groups {
+                        id
+                        name
                         persons {
                             id
                             name
-                            resources
                         }
                         expenses {
                             id
                             name
-                            amount
                         }
                     }
                 }
@@ -104,26 +128,61 @@ async fn graphql_api_should_work() {
     });
 
     // Act
+    let viewer_input = GraphQLRequestInput::WithToken {
+        body: &body,
+        token: &token,
+    };
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&viewer_body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<Viewer>>()
+        .send::<Viewer>(&viewer_input)
         .await
         .expect("Failed to convert response to json");
 
     // Assert
-    assert!(res.errors.is_none());
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
     let data = res.data.unwrap();
-    assert!(data.viewer.group.persons.is_empty());
-    assert!(data.viewer.group.expenses.is_empty());
+    assert!(data.viewer.groups.is_empty());
+
+    /* --- addGroup --- */
+    // Arrange
+    let group_name = helpers::rand_string();
+    let body = json!({
+        "query": r#"
+            mutation IT_ADD_GROUP($input: AddGroupInput!) {
+                addGroup(input: $input)
+            }
+        "#,
+        "variables": {
+            "input": {
+                "name": group_name
+            }
+        }
+    });
+
+    // Act
+    let input = GraphQLRequestInput::WithToken {
+        body: &body,
+        token: &token,
+    };
+    let res = client
+        .send::<AddGroup>(&input)
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
+
+    /* --- Check Mutation result --- */
+    let res = client
+        .send::<Viewer>(&viewer_input)
+        .await
+        .expect("Failed to convert response to json");
+
+    // Assert
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
+    let data = res.data.unwrap();
+    assert!(data.viewer.groups.len() == 1);
+    assert_eq!(group_name, data.viewer.groups[0].name);
+    let group_id = data.viewer.groups[0].id;
 
     /* --- addPerson --- */
     // Arrange
@@ -135,45 +194,30 @@ async fn graphql_api_should_work() {
         "#,
         "variables": {
             "input": {
+                "groupId": group_id,
                 "name": "Mary",
-                "resources": 0
+                "resources": 0,
             }
         }
     });
 
     // Act
+    let input = GraphQLRequestInput::WithToken {
+        body: &body,
+        token: &token,
+    };
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<AddPerson>>()
+        .send::<AddPerson>(&input)
         .await
         .expect("Failed to convert response to json");
 
     // Assert
-    assert!(res.errors.is_none());
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
 
     /* --- Shouldn't be able to create duplicate person --- */
     // Act
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<AddPerson>>()
+        .send::<AddPerson>(&input)
         .await
         .expect("Failed to convert response to json");
 
@@ -181,28 +225,53 @@ async fn graphql_api_should_work() {
     assert!(res.errors.is_some());
 
     /* --- Check mutation results --- */
+    // Arrange
+    let body = json!({
+        "query": r#"
+            query IT_GROUP($id: String!) {
+                group(id: $id) {
+                    id
+                    name
+                    persons {
+                        id
+                        name
+                        resources
+                        expenses {
+                            id
+                            name
+                            amount
+                        }
+                    }
+                    expenses {
+                        id
+                        name
+                        amount
+                    }
+                }
+            }
+        "#,
+        "variables": {
+            "id": group_id
+        }
+    });
+
     // Act
+    let group_input = GraphQLRequestInput::WithToken {
+        body: &body,
+        token: &token,
+    };
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&viewer_body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<Viewer>>()
+        .send::<GroupQuery>(&group_input)
         .await
         .expect("Failed to convert response to json");
 
     // Assert
-    assert!(res.errors.is_none());
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
     let data = res.data.unwrap();
-    assert!(!data.viewer.group.persons.is_empty());
+    assert!(!data.group.persons.is_empty());
+    assert!(data.group.persons.len() == 1);
 
-    let person_id = data.viewer.group.persons[0].id;
+    let person_id = data.group.persons[0].id;
 
     /* --- updatePerson --- */
     // Arrange
@@ -222,18 +291,12 @@ async fn graphql_api_should_work() {
     });
 
     // Act
+    let input = GraphQLRequestInput::WithToken {
+        body: &body,
+        token: &token,
+    };
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<UpdatePerson>>()
+        .send::<UpdatePerson>(&input)
         .await
         .expect("Failed to convert response to json");
 
@@ -250,6 +313,7 @@ async fn graphql_api_should_work() {
         "#,
         "variables": {
             "input": {
+                "groupId": group_id,
                 "personId": person_id,
                 "name": "Burger King",
                 "amount": 20
@@ -258,46 +322,29 @@ async fn graphql_api_should_work() {
     });
 
     // Act
+    let input = GraphQLRequestInput::WithToken {
+        body: &body,
+        token: &token,
+    };
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<AddExpense>>()
+        .send::<AddExpense>(&input)
         .await
         .expect("Failed to convert response to json");
 
     // Assert
-    assert!(res.errors.is_none());
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
 
     /* --- Check mutation results --- */
-    // Act
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&viewer_body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<Viewer>>()
+        .send::<GroupQuery>(&group_input)
         .await
         .expect("Failed to convert response to json");
 
     // Assert
-    assert!(res.errors.is_none());
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
     let data = res.data.unwrap();
-    assert_eq!(data.viewer.group.persons[0].resources, new_resources);
-    assert!(!data.viewer.group.expenses.is_empty());
+    assert_eq!(data.group.persons[0].resources, new_resources);
+    assert!(!data.group.persons[0].expenses.is_empty());
 
     /* --- removePerson --- */
     // Arrange
@@ -315,46 +362,30 @@ async fn graphql_api_should_work() {
     });
 
     // Act
+    let input = GraphQLRequestInput::WithToken {
+        body: &body,
+        token: &token,
+    };
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<RemovePerson>>()
+        .send::<RemovePerson>(&input)
         .await
         .expect("Failed to convert response to json");
 
     // Assert
-    assert!(res.errors.is_none());
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
 
     /* --- Check mutation results --- */
     // Act
     let res = client
-        .post(&format!("{}/graphql", app.address))
-        .header(reqwest::header::AUTHORIZATION, &bearer)
-        .json(&viewer_body)
-        .send()
-        .await
-        .expect("Failed to execute request");
-
-    assert_eq!(200, res.status());
-
-    let res = res
-        .json::<GraphQLResponse<Viewer>>()
+        .send::<GroupQuery>(&group_input)
         .await
         .expect("Failed to convert response to json");
 
     // Assert
-    assert!(res.errors.is_none());
+    assert!(res.errors.is_none(), format!("{:?}", res.errors));
     let data = res.data.unwrap();
-    assert!(data.viewer.group.persons.is_empty());
-    assert!(data.viewer.group.expenses.is_empty());
+    assert!(data.group.persons.is_empty());
+    assert!(data.group.expenses.is_empty());
 }
 
 #[actix_rt::test]
@@ -406,11 +437,20 @@ struct Viewer {
 }
 
 #[derive(serde::Deserialize)]
-struct User {
+struct GroupQuery {
     group: Group,
 }
+
+#[derive(serde::Deserialize)]
+struct User {
+    groups: Vec<Group>,
+}
+
+#[allow(dead_code)]
 #[derive(serde::Deserialize)]
 struct Group {
+    id: uuid::Uuid,
+    name: String,
     persons: Vec<Person>,
     expenses: Vec<Expense>,
 }
@@ -421,6 +461,7 @@ struct Person {
     id: uuid::Uuid,
     name: String,
     resources: i32,
+    expenses: Vec<Expense>,
 }
 
 #[allow(dead_code)]
@@ -429,6 +470,13 @@ struct Expense {
     id: uuid::Uuid,
     name: String,
     amount: i32,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AddGroup {
+    add_group: bool,
 }
 
 #[allow(dead_code)]

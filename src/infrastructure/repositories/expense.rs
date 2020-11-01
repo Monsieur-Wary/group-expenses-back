@@ -17,6 +17,15 @@ pub struct Expense {
 
 pub struct ExpenseRepository;
 impl ExpenseRepository {
+    pub fn find_by_person(person: &Person, pool: &PostgresPool) -> anyhow::Result<Vec<Expense>> {
+        Expense::belonging_to(person)
+            .load(&pool.get()?)
+            .context(format!(
+                "Couldn't find this person's ({}) expenses",
+                person.id
+            ))
+    }
+
     pub fn find_by_group(group: &Group, pool: &PostgresPool) -> anyhow::Result<Vec<Expense>> {
         Expense::belonging_to(group)
             .load(&pool.get()?)

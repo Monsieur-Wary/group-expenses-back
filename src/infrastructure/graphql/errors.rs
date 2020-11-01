@@ -10,6 +10,7 @@ pub enum GraphQLError {
     InvalidAmount,
     AlreadyUsedEmail,
     UserNotFound,
+    GroupNotFound,
     PersonNotFound,
     NonUniqueName(String),
     InternalServerError(anyhow::Error),
@@ -70,6 +71,12 @@ impl juniper::IntoFieldError for GraphQLError {
                 "The viewer was not found!",
                 graphql_value!({
                     "code": "USER_NOT_FOUND"
+                }),
+            ),
+            GraphQLError::GroupNotFound => juniper::FieldError::new(
+                "The group was not found!",
+                graphql_value!({
+                    "code": "GROUP_NOT_FOUND"
                 }),
             ),
             GraphQLError::PersonNotFound => juniper::FieldError::new(
